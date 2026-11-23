@@ -131,6 +131,16 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
 .cam-tag i{display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--accent); box-shadow:0 0 7px var(--accent)}
 .cam-tag.live i{background:var(--warn); box-shadow:0 0 7px var(--warn)}
 #scene.orbitable{cursor:grab}
+#scene.spinning{cursor:grabbing}
+.nav-hint{
+  position:absolute; left:50%; bottom:26px; transform:translateX(-50%); z-index:3;
+  display:flex; align-items:center; gap:7px; padding:6px 14px; border-radius:999px;
+  background:rgba(10,14,15,.8); border:1px solid var(--line2); color:var(--ink3);
+  font-size:10.5px; letter-spacing:.03em; backdrop-filter:blur(8px); pointer-events:none;
+  transition:opacity 600ms var(--ease-out), transform 600ms var(--ease-out);
+}
+.nav-hint b{color:var(--accent-hi); font-weight:500}
+.nav-hint.gone{opacity:0; transform:translateX(-50%) translateY(6px)}
 
 /* ── 右下角：相机观测小窗（海康 VM 风格） ───────────────── */
 .vm{
@@ -262,14 +272,15 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
         <label class="check-row"><input id="showBeam" type="checkbox" checked />光路光幕</label>
         <label class="check-row"><input id="showFov" type="checkbox" checked />相机视野框</label>
         <label class="check-row"><input id="showHard" type="checkbox" checked />支架与灯具实体</label>
-        <label class="check-row"><input id="showOrbit" type="checkbox" />360° 环视机位</label>
+        <label class="check-row"><input id="lockView" type="checkbox" />锁定基准机位（不响应拖拽）</label>
         <div class="control">
           <div class="control-head"><label for="sExpo">相机曝光（仅小窗）</label><output id="oExpo">×1.0</output></div>
           <input id="sExpo" type="range" min="30" max="300" step="5" value="100" />
         </div>
         <button class="btn-reset" id="btnView">复位观察机位</button>
         <div class="note">
-          主视图默认<b>锁在面阵相机轴向高位</b>；开启 360° 环视后可拖拽整圈旋转、滚轮缩放、双击复位。
+          主视图<b>默认停在面阵相机轴向高位</b>，在画布上拖拽即可 360° 环视（水平不限位）、滚轮缩放、双击复位。
+          勾选「锁定基准机位」后回到基准并禁用拖拽，保证观测基准不动。
           右下角小窗始终是<b>相机实拍画面</b>，不随主视图旋转，曝光独立可调。
           判断打光对不对，仍以小窗的明暗与阴影为准。
         </div>
@@ -278,6 +289,7 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
 
     <main class="stage" id="stage">
       <canvas id="scene"></canvas>
+      <div class="nav-hint" id="navHint"><b>拖拽</b>环视 360° · 滚轮缩放 · 双击复位</div>
       <div class="hud">
         <span class="token" id="tkLight">RS 环形光</span>
         <span class="token" id="tkBright">亮度 75%</span>
@@ -334,7 +346,7 @@ const S = {
   wd: clamp(parseFloat(qs.get('wd')) || 160, 80, 400),
   on: true, bright: 75, tint: 'white', cct: 5000,
   h: 80, tilt: 78, azim: 0,
-  exposure: 1.0, orbit: false,
+  exposure: 1.0, lockView: false,
   beam: true, fovBox: true, hardware: true,
 };
 
@@ -358,7 +370,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = T.PCFShadowMap;
 renderer.toneMapping = T.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.12;
+renderer.toneMappingExposure = 1.05;
 renderer.setClearColor(0x05080a, 1);
 
 const scene = new T.Scene();
@@ -372,7 +384,7 @@ scene.add(new T.AmbientLight(0x8fb6c8, 0.16));
 
 const composer = new T.EffectComposer(renderer);
 composer.addPass(new T.RenderPass(scene, mainCam));
-const bloom = new T.UnrealBloomPass(new T.Vector2(1, 1), 0.55, 0.8, 0.82);
+const bloom = new T.UnrealBloomPass(new T.Vector2(1, 1), 0.48, 0.8, 0.84);
 composer.addPass(bloom);
 composer.addPass(new T.OutputPass());
 
@@ -961,12 +973,12 @@ function updatePower() {
   const useCol = col.clone().lerp(new T.Color(1, 1, 1), 0.15);
   for (const s of spots) {
     s.light.color.copy(useCol);
-    s.light.intensity = b * 155 * s.w;
+    s.light.intensity = b * 128 * s.w;
     s.light.visible = S.on;
   }
   if (dirLight) {
     dirLight.color.copy(useCol);
-    dirLight.intensity = b * 0.95;
+    dirLight.intensity = b * 0.82;
     dirLight.visible = S.on;
   }
   if (hemi) {
@@ -1124,10 +1136,13 @@ function resetView() {
 }
 function updateViewTag() {
   const deg = ((Math.round(CAM.az * 180 / Math.PI) % 360) + 360) % 360;
-  $('camTagTxt').innerHTML = S.orbit
-    ? `360° 环视 · 方位 ${deg}° · 俯仰 ${Math.round(CAM.el * 180 / Math.PI)}°`
-    : '面阵相机轴向高位 · 锁定';
-  $('camTag').classList.toggle('live', S.orbit);
+  const el = Math.round(CAM.el * 180 / Math.PI);
+  // 以「是否偏离基准」判断，而不是以开关判断：拖过就标方位，双击回位就回到「基准」
+  const atBase = Math.abs(CAM.az) < 0.005 && Math.abs(CAM.el - 0.82) < 0.005 && Math.abs(CAM.zoom - 1) < 0.01;
+  $('camTagTxt').innerHTML = atBase
+    ? '面阵相机轴向高位 · 基准'
+    : `360° 环视 · 方位 ${deg}° · 俯仰 ${el}°`;
+  $('camTag').classList.toggle('live', !atBase);
 }
 
 /* ── 小窗渲染：单画布 + 剪裁视口 ──────────────────────────── */
@@ -1149,7 +1164,7 @@ function drawInset() {
   renderer.setClearColor(0x030506, 1);
   renderer.clear(true, true, true);
   const oldExpo = renderer.toneMappingExposure;
-  renderer.toneMappingExposure = S.exposure;
+  renderer.toneMappingExposure = S.exposure * 0.86;
   renderer.autoClear = false;
   renderer.render(scene, camCam);
   renderer.autoClear = true;
@@ -1217,38 +1232,44 @@ $('backBtn').addEventListener('click', (e) => {
 });
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
-  CAM.zoom = clamp(CAM.zoom * Math.exp(e.deltaY * 0.0009), 0.55, 2.4);
+  // 下限 0.8：再往里推相机会钻进罩体内部，看到的是壳体内壁而不是设备
+  CAM.zoom = clamp(CAM.zoom * Math.exp(e.deltaY * 0.0009), 0.8, 3.0);
   applyCam();
 }, { passive: false });
 
-/* 环视只在开关打开时接管拖拽；默认仍是锁定的基准机位 */
+/* 拖拽即环视，不依赖任何开关；勾选「锁定基准机位」才禁用 */
 let spinning = false, lastX = 0, lastY = 0;
+const hideHint = () => $('navHint').classList.add('gone');
+
 canvas.addEventListener('pointerdown', (e) => {
-  if (!S.orbit) return;
+  if (S.lockView) return;
   spinning = true; lastX = e.clientX; lastY = e.clientY;
   canvas.setPointerCapture(e.pointerId);
-  canvas.style.cursor = 'grabbing';
+  canvas.classList.add('spinning');
+  hideHint();
 });
 canvas.addEventListener('pointermove', (e) => {
-  if (!spinning || !S.orbit) return;
-  CAM.az -= (e.clientX - lastX) * 0.0065;
-  CAM.el = clamp(CAM.el + (e.clientY - lastY) * 0.0045, 0.10, 1.48);
+  if (!spinning) return;
+  // 灵敏度按画布尺寸归一：小窗口里拖一整屏也不会转过头
+  const k = 900 / Math.max(canvas.clientWidth, 480);
+  CAM.az -= (e.clientX - lastX) * 0.0065 * k;
+  CAM.el = clamp(CAM.el + (e.clientY - lastY) * 0.0045 * k, 0.10, 1.48);
   lastX = e.clientX; lastY = e.clientY;
   applyCam();
 });
-const endSpin = () => { spinning = false; canvas.style.cursor = S.orbit ? 'grab' : 'default'; };
+const endSpin = () => { spinning = false; canvas.classList.remove('spinning'); };
 canvas.addEventListener('pointerup', endSpin);
 canvas.addEventListener('pointercancel', endSpin);
-canvas.addEventListener('dblclick', () => { if (S.orbit) resetView(); });
+canvas.addEventListener('dblclick', resetView);
 
-$('showOrbit').addEventListener('change', (e) => {
-  S.orbit = e.target.checked;
-  canvas.classList.toggle('orbitable', S.orbit);
-  canvas.style.cursor = S.orbit ? 'grab' : 'default';
-  if (!S.orbit) resetView();           // 关掉环视即回到基准机位
-  else updateViewTag();
+$('lockView').addEventListener('change', (e) => {
+  S.lockView = e.target.checked;
+  canvas.classList.toggle('orbitable', !S.lockView);
+  if (S.lockView) { resetView(); hideHint(); }
 });
 $('btnView').addEventListener('click', resetView);
+canvas.classList.add('orbitable');
+setTimeout(hideHint, 9000);
 
 addEventListener('resize', () => { placeMainCam(); syncVMHead(); });
 
