@@ -90,7 +90,7 @@ export default function Studio() {
     run(next)
   }
 
-  const IMG_RE = /^image\/(jpeg|jpg|png|bmp|webp|tiff)$|\\.(jpe?g|png|bmp|webp|tiff?)$/i
+  const IMG_RE = /^image\/(jpeg|jpg|png|bmp|webp|tiff)$|\.(jpe?g|png|bmp|webp|tiff?)$/i
 
   async function onFile(file) {
     if (!file) return
