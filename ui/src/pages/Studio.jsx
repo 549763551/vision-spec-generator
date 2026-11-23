@@ -23,17 +23,45 @@ const STATUS = {
   fail: { label: '不通过', tone: 'fail' },
 }
 
+/* 3D 页是整页跳转，返回时 React 会重新挂载，组件 state 全部归零。
+   把工作台会话存 sessionStorage，让样张、参数、结果都跟着回来。 */
+const SESSION_KEY = 'visionspec.studio.session'
+
+function readSession() {
+  try {
+    return JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null') || null
+  } catch {
+    return null
+  }
+}
+
+function writeSession(s) {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(s))
+  } catch {
+    /* 图片 dataUrl 过大时，退而保存参数与结果，至少不让整页回到默认值 */
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ ...s, img: null }))
+    } catch { /* 隐私模式等：放弃持久化，不影响主流程 */ }
+  }
+}
+
 export default function Studio() {
-  const [form, setForm] = useState(EMPTY_FORM)
+  const restored = useMemo(readSession, [])
+  const [form, setForm] = useState(() => ({ ...EMPTY_FORM, ...(restored?.form || {}) }))
   const [tasks, setTasks] = useState([])
-  const [preset, setPreset] = useState('')
-  const [data, setData] = useState(null)
+  const [preset, setPreset] = useState(restored?.preset || '')
+  const [data, setData] = useState(restored?.data || null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const [drawNote, setDrawNote] = useState('')
+  const [drawNote, setDrawNote] = useState(restored?.drawNote || '')
   const [drawing, setDrawing] = useState(false)
-  const [img, setImg] = useState(null)   /* {dataUrl, name, size} */
+  const [img, setImg] = useState(restored?.img || null)   /* {dataUrl, name, size} */
   const fileRef = useRef(null)
+
+  useEffect(() => {
+    writeSession({ form, preset, data, drawNote, img })
+  }, [form, preset, data, drawNote, img])
 
   useEffect(() => {
     const qs = new URLSearchParams(location.search)
@@ -294,7 +322,11 @@ export default function Studio() {
             </Panel>
           )}
 
-          {data && <Results data={data} form={form} />}
+          {data && (
+            <div className="rise-in space-y-5">
+              <Results data={data} form={form} />
+            </div>
+          )}
         </div>
       </div>
     </div>
