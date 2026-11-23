@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>光学实验室 · 打光调试（在线静态版）</title>
+<style>
+:root{
+  --bg:#080b0c; --surface:#0f1315; --surface2:#161b1d; --line:#ffffff12; --line2:#ffffff24;
+  --ink1:#eef3f2; --ink2:#c2cbc8; --ink3:#8b9695; --accent:#2fd3c5; --accent-hi:#5fe6da;
+  --accent-soft:#2fd3c51a; --warn:#e8a33d; --danger:#ff6a58;
+  --vm-bg:#0a1013; --vm-line:#1d2a31; --vm-ink:#7f939d;
+  --ease-out:cubic-bezier(.22,1,.36,1); --ease-snappy:cubic-bezier(.2,.8,.2,1);
+  --mono:Consolas,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg); color:var(--ink2); font-size:13px; line-height:1.6;
+  font-family:"PingFang SC","苹方简体","PingFang TC",-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; overflow:hidden;
+}
+button,input,select{font:inherit} button{cursor:pointer}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:6px}
+
+.app{display:flex; flex-direction:column; height:100vh}
+.topbar{
+  display:flex; align-items:center; gap:16px; padding:11px 20px;
+  border-bottom:1px solid var(--line); background:rgba(8,11,12,.88); backdrop-filter:blur(12px);
+  position:relative; z-index:6;
+}
+.back{
+  display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:8px;
+  border:1px solid var(--line); color:var(--ink2); font-size:12px;
+  transition:all 140ms var(--ease-snappy);
+}
+.back:hover{border-color:var(--line2); color:var(--ink1); background:var(--surface2)}
+.brand{display:flex; align-items:center; gap:10px}
+.brand-dot{width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent)}
+.brand h1{font-size:15px; font-weight:500; color:var(--ink1); margin:0; letter-spacing:.01em}
+.top-meta{margin-left:auto; display:flex; align-items:center; gap:14px; font-size:11.5px; color:var(--ink3)}
+.cur-light{
+  display:inline-flex; align-items:center; gap:8px; padding:5px 12px; border-radius:999px;
+  border:1px solid #2fd3c533; background:var(--accent-soft); color:var(--accent-hi); font-weight:500;
+}
+.cur-light.off{border-color:#ffffff1a; background:#ffffff08; color:var(--ink3)}
+
+.workspace{flex:1; display:grid; grid-template-columns:304px minmax(0,1fr); min-height:0}
+.sidebar{border-right:1px solid var(--line); background:var(--surface); overflow-y:auto; padding:18px 17px 40px}
+.side-section+.side-section{border-top:1px solid var(--line); padding-top:15px; margin-top:15px}
+.overline{font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--ink3); margin-bottom:3px}
+.sidebar h2{font-size:13.5px; font-weight:500; color:var(--ink1); margin:0 0 11px}
+
+.light-grid{display:grid; grid-template-columns:1fr 1fr; gap:7px}
+.light-card{
+  display:flex; flex-direction:column; gap:1px; padding:8px 10px; border-radius:9px; text-align:left;
+  border:1px solid var(--line); background:var(--surface2); color:var(--ink2);
+  transition:all 140ms var(--ease-snappy);
+}
+.light-card strong{font-size:12.5px; font-weight:500; color:var(--ink1)}
+.light-card span{font-size:9.5px; color:var(--ink3); font-family:var(--mono); letter-spacing:.04em}
+.light-card:hover{border-color:var(--line2); background:#1b2123}
+.light-card.active{border-color:var(--accent); background:var(--accent-soft); box-shadow:0 0 0 1px #2fd3c526}
+.light-card.active strong{color:var(--accent-hi)}
+.light-card.active span{color:var(--accent)}
+
+.sw-row{display:flex; align-items:center; justify-content:space-between; padding:6px 0 9px}
+.sw-row span{font-size:12px; color:var(--ink2)}
+.sw{position:relative; width:40px; height:21px; border-radius:999px; background:#1a2124; border:1px solid #2a353a; transition:all 180ms var(--ease-snappy); flex:0 0 auto; display:block; cursor:pointer}
+.sw::after{content:''; position:absolute; left:2px; top:2px; width:15px; height:15px; border-radius:50%; background:#66757b; transition:all 180ms var(--ease-out)}
+input:checked + .sw{background:rgba(47,211,197,.18); border-color:#2fd3c566}
+input:checked + .sw::after{left:21px; background:var(--accent); box-shadow:0 0 9px var(--accent)}
+
+.control{margin-top:10px}
+.control-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px}
+.control-head label{font-size:11.5px; color:var(--ink2)}
+.control-head output{font-size:12.5px; font-weight:500; color:var(--accent-hi); font-variant-numeric:tabular-nums; font-family:var(--mono)}
+.control.disabled{opacity:.4; pointer-events:none}
+input[type=range]{
+  -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:999px;
+  background:#1a2124; outline:none; border:1px solid var(--line);
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:13px; height:13px; border-radius:50%; background:var(--accent);
+  border:2px solid #0b0d0e; box-shadow:0 0 0 1px var(--accent); cursor:grab;
+  transition:transform 120ms var(--ease-snappy);
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.18)}
+input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; background:var(--accent); border:2px solid #0b0d0e; cursor:grab}
+
+.chips{display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-top:8px}
+.chip{
+  padding:5px 0; border-radius:7px; font-size:11px; border:1px solid var(--line);
+  background:var(--surface2); color:var(--ink3); transition:all 130ms var(--ease-snappy);
+}
+.chip:hover{color:var(--ink1); border-color:var(--line2)}
+.chip.on{border-color:var(--accent); color:var(--accent-hi); background:var(--accent-soft)}
+
+.btn-reset{
+  width:100%; margin-top:13px; padding:7px 12px; border-radius:8px; font-size:11.5px;
+  border:1px solid var(--line); background:transparent; color:var(--ink3);
+  transition:all 140ms var(--ease-snappy);
+}
+.btn-reset:hover{border-color:var(--line2); color:var(--ink1); background:var(--surface2)}
+
+.check-row{display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--ink2); padding:4px 0; cursor:pointer}
+.check-row input{accent-color:var(--accent); width:13px; height:13px}
+
+.note{font-size:10.5px; line-height:1.8; color:var(--ink3); border-left:2px solid #2fd3c522; padding-left:10px; margin-top:11px}
+.note b{color:var(--ink2); font-weight:500}
+
+.stage{position:relative; min-width:0; overflow:hidden; background:radial-gradient(ellipse at 52% -14%, #101f26 0%, #080b0c 58%)}
+#scene{position:absolute; inset:0; width:100%; height:100%; display:block}
+
+.hud{position:absolute; left:16px; top:14px; display:flex; gap:6px; flex-wrap:wrap; pointer-events:none; max-width:52%; z-index:3}
+.token{
+  font-size:10.5px; padding:4px 9px; border-radius:5px; background:rgba(10,14,15,.78);
+  border:1px solid var(--line); color:var(--ink2); font-variant-numeric:tabular-nums;
+  font-family:var(--mono); letter-spacing:.02em; backdrop-filter:blur(6px);
+}
+.token.hi{color:var(--accent-hi); border-color:#2fd3c53d}
+.token.warn{color:var(--warn); border-color:#e8a33d3d}
+.token.dim{color:var(--ink3)}
+
+.cam-tag{
+  position:absolute; left:16px; bottom:14px; display:flex; align-items:center; gap:9px; z-index:3;
+  font-size:10.5px; color:var(--ink3); font-family:var(--mono);
+}
+.cam-tag b{color:var(--ink2); font-weight:500}
+.cam-tag i{display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--accent); box-shadow:0 0 7px var(--accent)}
+.cam-tag.live i{background:var(--warn); box-shadow:0 0 7px var(--warn)}
+#scene.orbitable{cursor:grab}
+#scene.spinning{cursor:grabbing}
+.view-seg{display:flex; gap:4px; margin-top:11px}
+.view-seg button{
+  flex:1; padding:6px 0; border-radius:7px; font-size:11px;
+  border:1px solid var(--line); background:var(--surface2); color:var(--ink3);
+  transition:all 140ms var(--ease-snappy);
+}
+.view-seg button:hover{color:var(--ink1); border-color:var(--line2)}
+.view-seg button.on{border-color:var(--accent); color:var(--accent-hi); background:var(--accent-soft); box-shadow:0 0 0 1px #2fd3c526}
+.nav-hint{
+  position:absolute; left:50%; bottom:26px; transform:translateX(-50%); z-index:3;
+  display:flex; align-items:center; gap:7px; padding:6px 14px; border-radius:999px;
+  background:rgba(10,14,15,.8); border:1px solid var(--line2); color:var(--ink3);
+  font-size:10.5px; letter-spacing:.03em; backdrop-filter:blur(8px); pointer-events:none;
+  transition:opacity 600ms var(--ease-out), transform 600ms var(--ease-out);
+}
+.nav-hint b{color:var(--accent-hi); font-weight:500}
+.nav-hint.gone{opacity:0; transform:translateX(-50%) translateY(6px)}
+
+/* ── 右下角：相机观测小窗（海康 VM 风格） ───────────────── */
+.vm{
+  position:absolute; right:16px; bottom:16px; width:344px; z-index:4;
+  border:1px solid var(--vm-line); border-radius:3px;
+  box-shadow:0 22px 60px #000000b8, 0 0 0 1px #ffffff06;
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.02em;
+}
+.vm-bar{
+  display:flex; align-items:center; gap:7px; padding:5px 8px;
+  background:linear-gradient(#131e23,#0c1418); border-bottom:1px solid var(--vm-line);
+  color:var(--vm-ink); border-radius:2px 2px 0 0;
+}
+.vm-bar b{color:#cfe0e7; font-weight:600; letter-spacing:.06em}
+.vm-dot{width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 7px var(--accent)}
+.vm-live{margin-left:auto; display:inline-flex; align-items:center; gap:4px; color:var(--danger); font-weight:600; font-size:9.5px}
+.vm-live::before{content:''; width:5px; height:5px; border-radius:50%; background:var(--danger); animation:blink 1.5s steps(1,end) infinite}
+@keyframes blink{0%,60%{opacity:1}61%,100%{opacity:.15}}
+
+.vm-view{position:relative; width:100%; aspect-ratio:5/4; background:transparent; overflow:hidden}
+.vm-view::after{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(ellipse at 50% 48%, rgba(0,0,0,0) 42%, rgba(0,0,0,.42) 100%);
+  box-shadow:inset 0 0 0 1px #ffffff0a;
+}
+.vm-view .cnr{position:absolute; width:10px; height:10px; border-color:#5fe6da99; border-style:solid; border-width:0}
+.vm-view .tl{left:5px; top:5px; border-left-width:1px; border-top-width:1px}
+.vm-view .tr{right:5px; top:5px; border-right-width:1px; border-top-width:1px}
+.vm-view .bl{left:5px; bottom:5px; border-left-width:1px; border-bottom-width:1px}
+.vm-view .br{right:5px; bottom:5px; border-right-width:1px; border-bottom-width:1px}
+.vm-cross{position:absolute; left:50%; top:50%; width:100%; height:100%; transform:translate(-50%,-50%); pointer-events:none}
+.vm-cross::before,.vm-cross::after{content:''; position:absolute; background:#d6fffa33}
+.vm-cross::before{left:50%; top:calc(50% - 8px); width:1px; height:16px}
+.vm-cross::after{top:50%; left:calc(50% - 8px); height:1px; width:16px}
+.vm-view .vtag{
+  position:absolute; left:9px; top:6px; font-size:9.5px; color:#9fdcd466; letter-spacing:.08em; z-index:2;
+}
+.vm-scale{position:absolute; right:9px; bottom:7px; display:flex; align-items:center; gap:5px; color:#cfe0e7aa; font-size:9px; z-index:2}
+.vm-scale i{display:block; height:4px; border-left:1px solid #cfe0e788; border-right:1px solid #cfe0e788; border-bottom:1px solid #cfe0e788}
+.vm-meta{background:#0a1013; border-top:1px solid var(--vm-line); padding:6px 9px 7px}
+.vm-row{display:flex; align-items:center; gap:7px; padding:2.5px 0; color:var(--vm-ink); white-space:nowrap}
+.vm-row>span:first-child{width:30px; color:#61777f; flex:0 0 auto}
+.vm-row b{color:#d8e8ee; font-weight:600}
+.vm-row em{font-style:normal; margin-left:auto; font-size:9px; padding:0 5px; border-radius:3px; background:#ffffff0d; color:#8fb8c4; letter-spacing:.06em}
+.vm-row em.on{background:#2fd3c520; color:var(--accent-hi)}
+.vm-row em.off{background:#ff6a5818; color:#ff9c8f}
+.vm-bar-b{flex:1; height:3px; background:#16202a; border-radius:2px; overflow:hidden; margin-left:2px}
+.vm-bar-b s{display:block; height:100%; width:70%; background:linear-gradient(90deg,#2fd3c588,#5fe6da); text-decoration:none; transition:width 140ms linear}
+.vm-foot{display:flex; gap:9px; padding:4px 9px 5px; background:#080d10; border-top:1px solid #141e24; color:#5d727a; font-size:9.5px; border-radius:0 0 2px 2px}
+.vm-foot b{color:#9fc4ce; font-weight:600}
+.vm-foot .sep{margin-left:auto}
+
+@media(max-width:1080px){ .vm{width:286px} }
+@media(max-width:900px){
+  body{overflow:auto}
+  .app{height:auto}
+  .workspace{grid-template-columns:1fr}
+  .sidebar{border-right:none; border-bottom:1px solid var(--line)}
+  .stage{height:66vh}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="back" href="index.html" id="backBtn">← 项目首页</a>
+    <div class="brand"><span class="brand-dot"></span><h1>光学实验室 · 打光调试</h1></div>
+    <div class="top-meta">
+      <span class="cur-light" id="curLight">RS · 环形光</span>
+      <span id="ver"></span>
+    </div>
+  </header>
+  <div class="workspace">
+    <aside class="sidebar">
+      <section class="side-section">
+        <div class="overline">01 / 换光源</div>
+        <h2>光源形态</h2>
+        <div class="light-grid" id="lightGrid"></div>
+      </section>
+
+      <section class="side-section">
+        <div class="overline">02 / 光源控制</div>
+        <h2>亮度与色彩</h2>
+        <div class="sw-row">
+          <span>光源开关</span>
+          <input id="sOn" type="checkbox" checked hidden /><label class="sw" for="sOn"></label>
+        </div>
+        <div class="control">
+          <div class="control-head"><label for="sBright">亮度</label><output id="oBright">75 %</output></div>
+          <input id="sBright" type="range" min="0" max="100" step="1" value="75" />
+        </div>
+        <div class="chips" id="tintChips">
+          <button class="chip on" data-tint="white">白光</button>
+          <button class="chip" data-tint="blue">蓝光</button>
+          <button class="chip" data-tint="red">红光</button>
+          <button class="chip" data-tint="green">绿光</button>
+        </div>
+        <div class="control" id="wrapCct">
+          <div class="control-head"><label for="sCct">色温</label><output id="oCct">5000 K</output></div>
+          <input id="sCct" type="range" min="2700" max="6500" step="100" value="5000" />
+        </div>
+      </section>
+
+      <section class="side-section">
+        <div class="overline">03 / 支架安装</div>
+        <h2>位置与朝向</h2>
+        <div class="control">
+          <div class="control-head"><label for="sHeight">光源到工件</label><output id="oHeight">80 mm</output></div>
+          <input id="sHeight" type="range" min="40" max="200" step="5" value="80" />
+        </div>
+        <div class="control" id="wrapTilt">
+          <div class="control-head"><label for="sTilt">发光角（对水平面）</label><output id="oTilt">78°</output></div>
+          <input id="sTilt" type="range" min="20" max="90" step="1" value="78" />
+        </div>
+        <div class="control">
+          <div class="control-head"><label for="sAzim">支架方位角</label><output id="oAzim">0°</output></div>
+          <input id="sAzim" type="range" min="-180" max="180" step="5" value="0" />
+        </div>
+        <button class="btn-reset" id="btnReset">恢复该光源默认安装</button>
+        <div class="note">
+          光源<b>固定挂在面阵相机支架上</b>，不做自由拖拽：高度由支架臂长决定，
+          灯珠内倾角决定光斑落在哪里。角度往下压到 30° 以下，光就飞出视野——这是真实的暗场。
+        </div>
+      </section>
+
+      <section class="side-section">
+        <div class="overline">04 / 视图</div>
+        <h2>显示项</h2>
+        <label class="check-row"><input id="showBeam" type="checkbox" checked />光路光幕</label>
+        <label class="check-row"><input id="showFov" type="checkbox" checked />相机视野框</label>
+        <label class="check-row"><input id="showHard" type="checkbox" checked />支架与灯具实体</label>
+        <label class="check-row"><input id="lockView" type="checkbox" />锁定基准机位（不响应拖拽）</label>
+        <div class="view-seg" id="viewSeg">
+          <button data-view="rig" class="on">机台全景</button>
+          <button data-view="macro">打光特写</button>
+        </div>
+        <div class="control">
+          <div class="control-head"><label for="sExpo">相机曝光（仅小窗）</label><output id="oExpo">×1.0</output></div>
+          <input id="sExpo" type="range" min="30" max="300" step="5" value="100" />
+        </div>
+        <button class="btn-reset" id="btnView">复位观察机位</button>
+        <div class="note">
+          <b>机台全景</b>看立柱、横臂、相机夹与光源夹的整体结构；<b>打光特写</b>回到只框光源与工件的近景。
+          两者都可在画布上拖拽 360° 环视、滚轮缩放、双击复位。
+          勾选「锁定基准机位」后回到基准并禁用拖拽。
+          右下角小窗始终是<b>相机实拍画面</b>，不随主视图旋转，曝光独立可调；
+          判断打光对不对，仍以小窗的明暗与阴影为准。
+        </div>
+      </section>
+    </aside>
+
+    <main class="stage" id="stage">
+      <canvas id="scene"></canvas>
+      <div class="nav-hint" id="navHint"><b>拖拽</b>环视 360° · 滚轮缩放 · 双击复位</div>
+      <div class="hud">
+        <span class="token" id="tkLight">RS 环形光</span>
+        <span class="token" id="tkBright">亮度 75%</span>
+        <span class="token hi" id="tkTilt">光 78°</span>
+        <span class="token" id="tkMount">H 80 · 0°</span>
+        <span class="token" id="tkCover">覆盖 —</span>
+      </div>
+
+      <div class="vm" id="vm">
+        <div class="vm-bar">
+          <span class="vm-dot"></span><b>CAM-01</b><span>面阵相机 · 实时图像</span>
+          <span class="vm-live">LIVE</span>
+        </div>
+        <div class="vm-view" id="vmView">
+          <div class="vm-cross"></div>
+          <i class="cnr tl"></i><i class="cnr tr"></i><i class="cnr bl"></i><i class="cnr br"></i>
+          <div class="vtag" id="vmTag">FOV 15 × 12 mm</div>
+          <div class="vm-scale"><i id="vmBar" style="width:40px"></i><span id="vmBarTxt">5 mm</span></div>
+        </div>
+        <div class="vm-meta">
+          <div class="vm-row"><span>光源</span><b id="vmLight">RS 环形光</b><em class="on" id="vmOn">ON</em></div>
+          <div class="vm-row"><span>亮度</span><b id="vmBright">75%</b><i class="vm-bar-b"><s id="vmBrightBar"></s></i></div>
+          <div class="vm-row"><span>色温</span><b id="vmCct">5000K</b><em id="vmTint">白光</em></div>
+          <div class="vm-row"><span>角度</span><b id="vmTilt">78°</b><span>安装</span><b id="vmH">80mm</b><span>方位</span><b id="vmAzim">0°</b></div>
+        </div>
+        <div class="vm-foot">
+          <span>WD <b id="vmWd">160</b> mm</span>
+          <span>FOV <b id="vmFov">5.4°</b></span>
+          <span class="sep">覆盖 <b id="vmCov">—</b></span>
+          <span>均匀 <b id="vmUni">—</b></span>
+        </div>
+      </div>
+
+      <div class="cam-tag" id="camTag"><i></i>机位 M-01 · <b id="camTagTxt">面阵相机轴向高位 · 锁定</b></div>
+    </main>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="lab-data.js"></script>
+<script>
+const T = THREE;
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const D2R = Math.PI / 180;
+const U = 10;                       // 1 场景单位 = 10 mm
+const DOWN = new T.Vector3(0, -1, 0);
+
+/* ── 状态 ─────────────────────────────────────────────────── */
+const qs = new URLSearchParams(location.search);
+const S = {
+  series: qs.get('series') || 'RS',
+  fovW: parseFloat((qs.get('fov') || '15x12').split('x')[0]) || 15,
+  fovH: parseFloat((qs.get('fov') || '15x12').split('x')[1]) || 12,
+  wd: clamp(parseFloat(qs.get('wd')) || 160, 80, 400),
+  on: true, bright: 75, tint: 'white', cct: 5000,
+  h: 80, tilt: 78, azim: 0,
+  exposure: 1.0, lockView: false, view: 'rig',
+  beam: true, fovBox: true, hardware: true,
+};
+
+const DEF = {
+  RS:   { h: 80,  tilt: 78, tiltable: true,  range: [40, 200] },
+  '2BS':{ h: 70,  tilt: 78, tiltable: true,  range: [40, 200] },
+  HFS:  { h: 110, tilt: 90, tiltable: false, range: [50, 220] },
+  PHFS: { h: 110, tilt: 90, tiltable: false, range: [50, 220] },
+  CO:   { h: 0,   tilt: 90, tiltable: false, range: [0, 0] },
+  DS:   { h: 26,  tilt: 90, tiltable: false, range: [14, 70] },
+  LPG:  { h: 80,  tilt: 78, tiltable: true,  range: [40, 200] },
+  TUG:  { h: 30,  tilt: 90, tiltable: false, range: [16, 70] },
+};
+let LIGHTS = [];
+
+/* ── 渲染器 ───────────────────────────────────────────────── */
+const canvas = $('scene');
+const stage = $('stage');
+const renderer = new T.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = T.PCFShadowMap;
+renderer.toneMapping = T.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.setClearColor(0x05080a, 1);
+
+const scene = new T.Scene();
+const mainCam = new T.PerspectiveCamera(38, 1.6, 0.1, 200);
+const camCam = new T.PerspectiveCamera(5.4, 1.25, 0.2, 120);
+
+const pmrem = new T.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new T.RoomEnvironment(), 0.06).texture;
+scene.environmentIntensity = 0.3;
+scene.add(new T.AmbientLight(0x8fb6c8, 0.16));
+// 机台轮廓光：只负责让黑色铝型材在暗场里看得出结构，不投影、不参与打光判定
+const rimFill = new T.DirectionalLight(0x9fc0d2, 0.30);
+rimFill.position.set(-6, 9, 7);
+rimFill.castShadow = false;
+scene.add(rimFill);
+const rimFill2 = new T.DirectionalLight(0x6f8b9c, 0.16);
+rimFill2.position.set(7, 5, -6);
+scene.add(rimFill2);
+// 造型光强度随视图切换：全景要看清机台结构，特写要保持真实布光不被冲淡
+function updateFill() {
+  const rig = S.view === 'rig';
+  rimFill.intensity = rig ? 0.62 : 0.20;
+  rimFill2.intensity = rig ? 0.34 : 0.10;
+}
+
+const composer = new T.EffectComposer(renderer);
+composer.addPass(new T.RenderPass(scene, mainCam));
+const bloom = new T.UnrealBloomPass(new T.Vector2(1, 1), 0.48, 0.8, 0.84);
+composer.addPass(bloom);
+composer.addPass(new T.OutputPass());
+
+/* ── 材质 ─────────────────────────────────────────────────── */
+function std(color, metal, rough) {
+  return new T.MeshStandardMaterial({ color, metalness: metal, roughness: rough });
+}
+const MAT = {
+  body:   std(0x33393c, 0.78, 0.42),
+  dark:   std(0x12171a, 0.62, 0.52),
+  cam:    std(0x424b51, 0.74, 0.36),
+  lens:   std(0x1b2126, 0.72, 0.3),
+  plate:  std(0x434b4f, 0.45, 0.55),
+  part:   std(0x9aa4a8, 0.78, 0.36),
+  rail:   std(0x4a5459, 0.84, 0.34),   // 阳极氧化铝型材：立柱 / 悬臂
+  slot:   std(0x0b0f11, 0.45, 0.72),   // T 槽 / 安装孔
+  base:   std(0x30373a, 0.66, 0.50),   // 机台底板
+  knob:   std(0x4c5559, 0.72, 0.40),   // 锁紧旋钮
+  bolt:   std(0x8b969a, 0.88, 0.28),   // 手拧螺丝
+  led:    new T.MeshBasicMaterial({ color: 0x2fd3c5 }),
+  glass:  new T.MeshStandardMaterial({ color: 0xbfe7e2, metalness: 0.9, roughness: 0.06,
+            transparent: true, opacity: 0.3, side: T.DoubleSide }),
+  emit:   new T.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2.4,
+            roughness: 0.35, metalness: 0, side: T.DoubleSide, toneMapped: false }),
+  frame:  new T.LineBasicMaterial({ color: 0x2fd3c5, transparent: true, opacity: 0.34 }),
+};
+MAT.part.envMapIntensity = 0.75;
+MAT.plate.envMapIntensity = 0.4;
+MAT.rail.envMapIntensity = 1.5;
+MAT.base.envMapIntensity = 1.1;
+
+/* 表面微结构：掠射光能"抓"到划痕，角度一变亮灭就变 */
+const scratchTex = (() => {
+  const N = 512, c = document.createElement('canvas');
+  c.width = c.height = N;
+  const g = c.getContext('2d');
+  g.fillStyle = '#8e8e8e'; g.fillRect(0, 0, N, N);
+  for (let i = 0; i < 1500; i++) {
+    const x = Math.random() * N, y = Math.random() * N;
+    const len = 4 + Math.random() * 80, ang = (Math.random() - 0.5) * 2.6;
+    const v = 110 + Math.random() * 120 | 0;
+    g.strokeStyle = 'rgba(' + v + ',' + v + ',' + v + ',' + (0.14 + Math.random() * 0.4) + ')';
+    g.lineWidth = Math.random() < 0.86 ? 0.6 : 1.5;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len); g.stroke();
+  }
+  const t = new T.CanvasTexture(c);
+  t.wrapS = t.wrapT = T.RepeatWrapping;
+  t.repeat.set(2.4, 2.4);
+  t.anisotropy = 4;
+  return t;
+})();
+MAT.part.roughnessMap = scratchTex;
+MAT.part.bumpMap = scratchTex;
+MAT.part.bumpScale = 0.014;
+MAT.plate.roughnessMap = scratchTex;
+MAT.plate.bumpMap = scratchTex;
+MAT.plate.bumpScale = 0.005;
+
+/* ── 工件与台面 ───────────────────────────────────────────── */
+const sample = new T.Group();
+{
+  const plate = new T.Mesh(new T.BoxGeometry(4.4, 0.4, 4.4), MAT.plate);
+  plate.position.y = -0.2; plate.receiveShadow = true; sample.add(plate);
+  // 边缘深色压条：外移到台面轮廓外、顶面低于台面 0.05 mm。
+  // 早期版本用一块 4.46 的整板压在 4.4 的台面上，两块顶面同在 y=0，
+  // 深度值相同 → 台面出现等距横向条纹（z-fighting），整改成四条独立压条后消失。
+  for (const [px, pz, sx, sz] of [[0, -2.225, 4.46, 0.045], [0, 2.225, 4.46, 0.045],
+                                  [-2.225, 0, 0.045, 4.46], [2.225, 0, 0.045, 4.46]]) {
+    const edge = new T.Mesh(new T.BoxGeometry(sx, 0.07, sz), MAT.dark);
+    edge.position.set(px, -0.04, pz); edge.receiveShadow = true; sample.add(edge);
+  }
+
+  for (const z of [-0.575, 0.575]) {
+    const m = new T.Mesh(new T.BoxGeometry(2.2, 0.3, 1.05), MAT.part);
+    m.position.set(0, 0.15, z);
+    m.castShadow = true; m.receiveShadow = true; sample.add(m);
+  }
+  const boss = new T.Mesh(new T.CylinderGeometry(0.5, 0.53, 0.34, 56), MAT.part);
+  boss.position.y = 0.47; boss.castShadow = true; boss.receiveShadow = true; sample.add(boss);
+  const cham = new T.Mesh(new T.CylinderGeometry(0.43, 0.5, 0.06, 56), MAT.part);
+  cham.position.y = 0.67; cham.castShadow = true; cham.receiveShadow = true; sample.add(cham);
+  const groove = new T.Mesh(new T.TorusGeometry(0.29, 0.006, 8, 64), MAT.dark);
+  groove.rotation.x = Math.PI / 2; groove.position.y = 0.701; sample.add(groove);
+  for (const [x, z, r] of [[-1.55, 1.15, 0.5], [1.35, -1.35, -0.35]]) {
+    const sc = new T.Mesh(new T.BoxGeometry(1.6, 0.004, 0.012),
+      new T.MeshStandardMaterial({ color: 0xb6c0c4, metalness: 0.9, roughness: 0.18 }));
+    sc.position.set(x, 0.004, z); sc.rotation.y = r; sample.add(sc);
+  }
+}
+scene.add(sample);
+
+const fovFrame = new T.Group();
+{
+  const hw = S.fovW / 20, hh = S.fovH / 20;
+  const pts = [
+    -hw, 0, -hh, hw, 0, -hh, hw, 0, -hh, hw, 0, hh,
+    hw, 0, hh, -hw, 0, hh, -hw, 0, hh, -hw, 0, -hh,
+  ];
+  const g = new T.BufferGeometry();
+  g.setAttribute('position', new T.Float32BufferAttribute(pts, 3));
+  const seg = new T.LineSegments(g, MAT.frame);
+  seg.position.y = 0.003; fovFrame.add(seg);
+}
+scene.add(fovFrame);
+
+/* ── 相机与支架 ───────────────────────────────────────────── */
+const camRig = new T.Group();
+scene.add(camRig);
+const bracket = new T.Group();
+scene.add(bracket);
+
+function rod(a, b, r, mat) {
+  const d = new T.Vector3().subVectors(b, a);
+  const len = d.length();
+  const m = new T.Mesh(new T.CylinderGeometry(r, r, Math.max(len, 0.01), 8), mat);
+  m.position.copy(a).addScaledVector(d, 0.5);
+  m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize());
+  return m;
+}
+function clearGroup(g) {
+  while (g.children.length) {
+    const c = g.children.pop();
+    c.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+  }
+}
+
+let lensFront = 16;
+function buildCamRig() {
+  clearGroup(camRig);
+  lensFront = S.wd / U;
+  const lensLen = clamp(2.4 + S.wd / 220, 2.4, 4.2);
+  const lens = new T.Mesh(new T.CylinderGeometry(0.52, 0.52, lensLen, 32), MAT.lens);
+  lens.position.y = lensFront + lensLen / 2;
+  lens.castShadow = true; camRig.add(lens);
+  const hood = new T.Mesh(new T.TorusGeometry(0.54, 0.035, 10, 32), MAT.body);
+  hood.rotation.x = Math.PI / 2; hood.position.y = lensFront + 0.02; camRig.add(hood);
+  // 调焦环：真实镜头中段有一圈滚花环，也是「这是支镜头」的关键特征
+  const focus = new T.Mesh(new T.CylinderGeometry(0.575, 0.575, lensLen * 0.28, 32), MAT.body);
+  focus.position.y = lensFront + lensLen * 0.62; camRig.add(focus);
+  const collar = new T.Mesh(new T.CylinderGeometry(0.6, 0.6, 0.30, 28), MAT.body);
+  collar.position.y = lensFront + lensLen - 0.10; camRig.add(collar);
+
+  const bodyH = 3.0, bodyW = 2.0;
+  const body = new T.Mesh(new T.BoxGeometry(bodyW, bodyH, bodyW), MAT.cam);
+  body.position.y = lensFront + lensLen + bodyH / 2;
+  body.castShadow = true; camRig.add(body);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const fin = new T.Mesh(new T.BoxGeometry(0.10, bodyH * 0.84, 0.10), MAT.body);
+    fin.position.set(sx * (bodyW / 2 + 0.05), body.position.y, sz * (bodyW / 2 + 0.05));
+    camRig.add(fin);
+  }
+  const back = new T.Mesh(new T.BoxGeometry(bodyW * 0.86, bodyH * 0.42, 0.10), MAT.dark);
+  back.position.set(0, body.position.y + bodyH * 0.26, -bodyW / 2 - 0.04); camRig.add(back);
+  for (const sx of [-0.42, 0.42]) {
+    const plug = new T.Mesh(new T.CylinderGeometry(0.12, 0.12, 0.16, 10), MAT.body);
+    plug.rotation.x = Math.PI / 2;
+    plug.position.set(sx, body.position.y - bodyH * 0.16, -bodyW / 2 - 0.10);
+    camRig.add(plug);
+  }
+
+  camCam.position.set(0, lensFront - 0.02, 0);
+  camCam.rotation.set(-Math.PI / 2, 0, 0);
+  camCam.fov = 2 * Math.atan((S.fovW / 2) / S.wd) * 180 / Math.PI;
+  camCam.aspect = S.fovW / S.fovH;
+  camCam.updateProjectionMatrix();
+}
+
+/* ── 面阵相机实验台 ───────────────────────────────────────────
+   真实机台由「立柱底座 + 横臂滑台 + 相机接口板 + 光源夹持组件」四部分构成。
+   旧版用三根细杆把光源斜拉到画面外的相机上，看起来像吊线；这里改为
+   立柱铝型材 + 两个上下滑块 + 两条水平方铝悬臂，相机与光源都刚性夹在悬臂末端。
+   立柱固定在机台后方（-Z），不随方位角旋转，避免绕到前方挡住工件。
+   尺寸按视野等比示意；光学 WD 仍只用于小窗取景与视场角。 */
+const STAND = { w: 8.6, d: 9.2, colZ: -4.30, colW: 0.86 };
+function boxAt(w, h, d, mat, x, y, z, parent) {
+  const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  m.castShadow = true; m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+function cylAt(r, h, mat, x, y, z, axis, parent) {
+  const m = new T.Mesh(new T.CylinderGeometry(r, r, h, 16), mat);
+  m.position.set(x, y, z);
+  if (axis === 'x') m.rotation.z = Math.PI / 2;
+  if (axis === 'z') m.rotation.x = Math.PI / 2;
+  m.castShadow = true;
+  parent.add(m);
+  return m;
+}
+function buildBracket() {
+  clearGroup(bracket);
+  if (!S.hardware) return;
+
+  const lightY = lightGroup ? lightGroup.position.y : S.h / U;
+  const rad = (lightDim && lightDim.r) || 1.2;
+  const lensLen = clamp(2.4 + S.wd / 220, 2.4, 4.2);
+  const camBodyY = lensFront + lensLen + 1.5;        // 相机机身中心（bodyH = 3.0）
+  const colTop = lensFront + lensLen + 3.0 + 1.2;    // 立柱顶（高于机身）
+  const colBot = -0.44, colH = colTop - colBot, colY = (colTop + colBot) / 2;
+  const CZ = STAND.colZ, CW = STAND.colW;
+
+  // ① 实心底板 + 两条 T 槽导轨 + 四只底脚
+  boxAt(STAND.w, 0.72, STAND.d, MAT.base, 0, -0.80, -0.60, bracket);
+  for (const z of [3.15, 3.45]) {
+    boxAt(7.0, 0.10, 0.24, MAT.rail, 0, -0.39, z, bracket);
+    boxAt(7.0, 0.012, 0.075, MAT.slot, 0, -0.334, z, bracket);
+  }
+  for (const x of [-3.7, 3.7]) for (const z of [-4.75, 3.25])
+    cylAt(0.17, 0.16, MAT.dark, x, -1.20, z, 'y', bracket);
+
+  // 前面板：小屏 + 指示灯 + 旋钮
+  const fz = 3.83;
+  boxAt(3.0, 0.34, 0.03, MAT.slot, 0, -0.78, fz, bracket);
+  boxAt(0.90, 0.22, 0.02, MAT.lens, 0.75, -0.78, fz + 0.02, bracket);
+  for (let i = 0; i < 3; i++)
+    cylAt(0.055, 0.02, i === 0 ? MAT.led : MAT.knob, -1.10 + i * 0.28, -0.78, fz + 0.03, 'z', bracket);
+  cylAt(0.13, 0.10, MAT.knob, 1.48, -0.78, fz + 0.05, 'z', bracket);
+
+  // ② 立柱：方铝型材，正面双 T 槽 + 一列安装孔 + 顶盖 + 根部法兰
+  boxAt(CW, colH, CW, MAT.rail, 0, colY, CZ, bracket);
+  for (const sx of [-1, 1]) {
+    boxAt(0.075, colH - 0.24, 0.014, MAT.slot, sx * 0.27, colY, CZ + CW / 2 + 0.008, bracket);
+    boxAt(0.014, colH - 0.24, 0.075, MAT.slot, sx * (CW / 2 + 0.008), colY, CZ, bracket);
+  }
+  for (let y = 0.25; y < colTop - 0.35; y += 0.62)
+    cylAt(0.048, 0.024, MAT.slot, 0, y, CZ + CW / 2 + 0.014, 'z', bracket);
+  boxAt(CW + 0.14, 0.10, CW + 0.14, MAT.dark, 0, colTop + 0.05, CZ, bracket);
+  boxAt(1.35, 0.16, 1.35, MAT.dark, 0, colBot + 0.08, CZ, bracket);
+
+  // ③ 滑块 + 水平方铝悬臂（两个高度各一套）
+  function slider(y, armEndZ, armW, armH, dropLen) {
+    boxAt(CW + 0.32, 0.84, CW + 0.32, MAT.dark, 0, y, CZ, bracket);
+    boxAt(CW + 0.36, 0.14, CW + 0.36, MAT.rail, 0, y + 0.35, CZ, bracket);
+    cylAt(0.145, 0.20, MAT.knob, (CW + 0.32) / 2 + 0.10, y, CZ, 'x', bracket);
+    cylAt(0.05, 0.06, MAT.bolt, (CW + 0.32) / 2 + 0.22, y, CZ, 'x', bracket);
+    const z0 = CZ + CW / 2, z1 = armEndZ;
+    const len = Math.max(z1 - z0, 0.2), zm = (z0 + z1) / 2;
+    boxAt(armW, armH, len, MAT.rail, 0, y, zm, bracket);
+    boxAt(armW * 0.42, 0.012, len - 0.08, MAT.slot, 0, y + armH / 2 + 0.006, zm, bracket);
+    // 悬臂末端的下挂立柱：光源/相机挂在臂端下方，不是吊在臂端上方
+    if (dropLen) boxAt(armW * 0.9, dropLen, armW * 0.9, MAT.rail, 0, y - dropLen / 2, z1 + armW * 0.45, bracket);
+  }
+
+  // 相机接口板 + 两侧夹爪：机身半宽 1.0，板贴在机身后表面（z = -1.0），夹爪抱住两侧
+  slider(camBodyY, -1.12, 0.34, 0.30, 0);
+  boxAt(2.36, 1.90, 0.12, MAT.dark, 0, camBodyY + 0.15, -1.06, bracket);
+  for (const sx of [-1, 1]) {
+    boxAt(0.16, 1.90, 1.00, MAT.rail, sx * 1.14, camBodyY + 0.15, -0.55, bracket);
+    cylAt(0.095, 0.14, MAT.knob, sx * 1.24, camBodyY + 0.72, -0.10, 'x', bracket);
+  }
+
+  // 光源夹持组件：真实机台用 L 型支架——横臂越到灯体上方，再由刚性立柱下探，
+  // 末端夹座咬住灯体后缘。这样夹具永远在灯体外侧，不会被灯体挡住像悬空。
+  const mz = (lightDim && lightDim.mz !== undefined) ? lightDim.mz : -rad;
+  const top = (lightDim && lightDim.top !== undefined) ? lightDim.top : 0.25;
+  const dual = (lightDim && lightDim.dual) || 0;
+  const armY = lightY + top + 0.34;                 // 横臂在灯体上方
+  const clampY = lightY + Math.min(top * 0.5, 0.24); // 夹座咬在灯体后缘中下部
+  const dropLen = Math.max(armY - clampY, 0.2);
+  const armEnd = mz - 0.06;
+  slider(armY, armEnd, 0.30, 0.24, 0);
+  const dropH = armY - clampY;
+  if (dual) {
+    // 两条灯管分列 x = ±B：横担 + 两根刚性立柱 + 两个夹座
+    boxAt(dual * 2 + 0.42, 0.22, 0.24, MAT.rail, 0, armY, armEnd + 0.10, bracket);
+    for (const sx of [-1, 1]) {
+      boxAt(0.24, dropH, 0.24, MAT.rail, sx * dual, armY - dropH / 2, mz + 0.02, bracket);
+      boxAt(0.46, 0.42, 0.30, MAT.dark, sx * dual, clampY, mz + 0.06, bracket);
+      for (const s2 of [-1, 1])
+        boxAt(0.08, 0.28, 0.24, MAT.rail, sx * dual + s2 * 0.21, clampY - 0.10, mz + 0.06, bracket);
+    }
+  } else {
+    boxAt(0.24, dropH, 0.24, MAT.rail, 0, armY - dropH / 2, mz + 0.02, bracket);
+    boxAt(0.72, 0.42, 0.30, MAT.dark, 0, clampY, mz + 0.06, bracket);
+    for (const sx of [-1, 1])
+      boxAt(0.08, 0.28, 0.24, MAT.rail, sx * 0.33, clampY - 0.10, mz + 0.06, bracket);
+    cylAt(0.095, 0.12, MAT.knob, 0, clampY + 0.29, mz + 0.06, 'y', bracket);
+    cylAt(0.040, 0.08, MAT.bolt, 0, clampY + 0.37, mz + 0.06, 'y', bracket);
+  }
+}
+
+/* ── 光幕：整灯的柔和体光（不是一根根光线） ───────────────── */
+const CURTAIN_VS = `
+  varying float vT; varying vec3 vN; varying vec3 vV;
+  uniform float uH;
+  void main(){
+    vT = clamp(-position.y / max(uH, 0.0001), 0.0, 1.0);
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vN = normalize(normalMatrix * normal);
+    vV = normalize(-mv.xyz);
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+const CURTAIN_FS = `
+  varying float vT; varying vec3 vN; varying vec3 vV;
+  uniform vec3 uColor; uniform float uAlpha;
+  void main(){
+    float fres = 1.0 - abs(dot(normalize(vN), normalize(vV)));
+    float axial = smoothstep(0.0, 0.10, vT) * pow(1.0 - vT, 1.05);
+    float a = (0.35 + 0.9 * fres) * axial * uAlpha;
+    if (a < 0.0015) discard;
+    gl_FragColor = vec4(uColor, a);
+  }
+`;
+const SLAB_FS = `
+  varying float vT; varying vec3 vN; varying vec3 vV; varying vec3 vP; varying vec3 vNL;
+  uniform vec3 uColor; uniform float uAlpha;
+  void main(){
+    float ex = smoothstep(0.5, 0.18, abs(vP.x));
+    float ez = smoothstep(0.5, 0.18, abs(vP.z));
+    // 四个侧面的 |x| / |z| 恒为 0.5，只靠 ex*ez 会把侧面 alpha 算成 0 → 光幕整个消失。
+    // 每个侧面改用「垂直于该面」的那一轴的淡出（±x 面沿 z 展开用 ez，±z 面用 ex），
+    // 四条竖边各自淡出，才不会出现方碗轮廓。
+    float lateral = ex * ez;
+    if (abs(vNL.x) > 0.5) lateral = ez;
+    else if (abs(vNL.z) > 0.5) lateral = ex;
+    float axial = smoothstep(0.0, 0.30, vT) * (0.55 + 0.65 * (1.0 - vT));
+    // 与圆柱光幕同一套体光逻辑：正对视线几乎透明，掠射边缘才聚出亮度。
+    // 缺这一项时板状光幕正对相机整片按满 alpha 叠加，会变成一堵白墙。
+    float fres = 1.0 - abs(dot(normalize(vN), normalize(vV)));
+    float body = 0.20 + 0.85 * fres;
+    float a = lateral * axial * body * uAlpha;
+    if (a < 0.0015) discard;
+    gl_FragColor = vec4(uColor, a);
+  }
+`;
+const SLAB_VS = `
+  varying float vT; varying vec3 vN; varying vec3 vV; varying vec3 vP; varying vec3 vNL;
+  uniform float uH; uniform float uW; uniform float uD;
+  void main(){
+    vP = vec3(position.x / uW, 0.0, position.z / uD);
+    vT = clamp(-position.y / max(uH, 0.0001), 0.0, 1.0);
+    vNL = normal;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vN = normalize(normalMatrix * normal);
+    vV = normalize(-mv.xyz);
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+const volumeGroup = new T.Group();
+const lightGroup = new T.Group();
+lightGroup.add(volumeGroup);
+scene.add(lightGroup);
+
+let lightGeo = null;
+let lightDim = null;
+let emitters = [];   // {p, inward|dir0, half, w}
+let spots = [];      // {light, target, p, inward|dir0, half, w}
+let volumes = [];    // {mesh, mat, kind, alpha0}
+let emissives = [];      // LED 发光面：高亮、toneMapped:false
+let softEmissives = [];  // 柔光罩/漫射板：低亮、半透明
+let dirLight = null;
+let hemi = null;
+let volSpec = null;
+
+function lampRGB() {
+  if (S.tint !== 'white') {
+    return { blue: [0.36, 0.56, 1.0], red: [1.0, 0.26, 0.17], green: [0.34, 1.0, 0.55] }[S.tint];
+  }
+  const t = S.cct / 100;
+  let r, g, b;
+  if (t <= 66) {
+    r = 255;
+    g = 99.47 * Math.log(t) - 161.12;
+    b = t <= 19 ? 0 : 138.52 * Math.log(t - 10) - 305.04;
+  } else {
+    r = 329.7 * Math.pow(t - 60, -0.1332);
+    g = 288.12 * Math.pow(t - 60, -0.0755);
+    b = 255;
+  }
+  const k = 1 / 255;
+  return [clamp(r * k, 0, 1), clamp(g * k, 0, 1), clamp(b * k, 0, 1)];
+}
+function lampColor() {
+  const c = lampRGB();
+  return new T.Color(c[0], c[1], c[2]);
+}
+
+function addEmitter(p, opts) {
+  emitters.push({ p: p.clone(), inward: opts.inward || null, dir0: opts.dir0 || null,
+    half: opts.half, w: opts.w === undefined ? 1 : opts.w });
+}
+function addSpot(p, opts) {
+  const sp = new T.SpotLight(0xffffff, 0, 0, opts.half, 0.96, 2);
+  sp.position.copy(p);
+  const tg = new T.Object3D();
+  tg.position.copy(p).addScaledVector(opts.dir0 || DOWN, 3);
+  lightGroup.add(sp); lightGroup.add(tg);
+  sp.target = tg;
+  if (opts.shadow) {
+    sp.castShadow = true;
+    sp.shadow.mapSize.set(1024, 1024);
+    sp.shadow.camera.near = 0.4;
+    sp.shadow.camera.far = 45;
+    sp.shadow.bias = -0.0004;
+    sp.shadow.normalBias = 0.035;
+    sp.shadow.radius = 3.5;
+  }
+  spots.push({ light: sp, target: tg, p: p.clone(), inward: opts.inward || null,
+    dir0: opts.dir0 || null, half: opts.half, w: opts.w === undefined ? 1 : opts.w });
+}
+
+function makeVolume(kind, alpha) {
+  const uniforms = {
+    uColor: { value: new T.Color(1, 1, 1) },
+    uAlpha: { value: alpha },
+    uH: { value: 1 },
+    uW: { value: 1 },
+    uD: { value: 1 },
+  };
+  const mat = new T.ShaderMaterial({
+    uniforms,
+    vertexShader: kind === 'slab' ? SLAB_VS : CURTAIN_VS,
+    fragmentShader: kind === 'slab' ? SLAB_FS : CURTAIN_FS,
+    transparent: true, depthWrite: false, side: T.DoubleSide,
+    blending: T.AdditiveBlending,
+  });
+  const mesh = new T.Mesh(new T.BufferGeometry(), mat);
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 3;
+  volumeGroup.add(mesh);
+  const rec = { mesh, mat, kind, alpha0: alpha };
+  volumes.push(rec);
+  return rec;
+}
+
+/* ── 光源模型 ─────────────────────────────────────────────── */
+function buildLightModel(geo) {
+  clearGroup(lightGroup);
+  lightGroup.add(volumeGroup);
+  clearGroup(volumeGroup);
+  emitters = []; spots = []; volumes = []; emissives = []; softEmissives = []; volSpec = null;
+  dirLight = null; hemi = null;
+
+  const shape = geo.shape;
+  const fw = S.fovW, fh = S.fovH;
+  const emitMat = MAT.emit.clone();
+  const col = lampColor();
+  emitMat.emissive = col.clone();
+  emitMat.color = col.clone().lerp(new T.Color(1, 1, 1), 0.6);
+  emissives.push(emitMat);
+
+  const g = new T.Group();
+  lightDim = null;
+
+  if (shape === 'ring') {
+    const R = clamp(fw * 0.55 + 12, 18, 44) / U;
+    lightDim = { r: R, mz: -R, top: 0.23 };
+    const housing = new T.Mesh(new T.TorusGeometry(R, 0.105, 16, 96), MAT.body);
+    housing.rotation.x = Math.PI / 2; housing.position.y = 0.12;
+    housing.castShadow = true; g.add(housing);
+    const face = new T.Mesh(new T.RingGeometry(R - 0.095, R + 0.085, 96), emitMat);
+    face.rotation.x = Math.PI / 2; face.position.y = 0.004; g.add(face);
+    const ledGeo = new T.SphereGeometry(0.024, 8, 8);
+    for (let i = 0; i < 24; i++) {
+      const a = i / 24 * Math.PI * 2;
+      const led = new T.Mesh(ledGeo, emitMat);
+      led.position.set(Math.cos(a) * (R - 0.015), -0.015, Math.sin(a) * (R - 0.015));
+      g.add(led);
+    }
+    for (const s of [-1, 1]) {
+      const post = new T.Mesh(new T.CylinderGeometry(0.02, 0.02, 0.22, 8), MAT.dark);
+      post.position.set(s * R * 0.66, 0.24, 0); g.add(post);
+    }
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * Math.PI * 2;
+      const cx = Math.cos(a), cz = Math.sin(a);
+      const p = new T.Vector3(cx * (R - 0.02), -0.02, cz * (R - 0.02));
+      const inward = new T.Vector3(-cx, 0, -cz);
+      addEmitter(p, { inward, half: 0.30 });
+      if (i % 2 === 0) addSpot(p, { inward, half: 0.42, shadow: i === 0 || i === 6 });
+    }
+    volSpec = { kind: 'curtain', rTop: R, alpha: 0.30 };
+
+  } else if (shape === 'bars') {
+    const B = clamp(fw * 0.5 + 10, 18, 40) / U;
+    const L = clamp(fw * 1.25 + 20, 40, 100) / U;
+    lightDim = { r: B + 0.28, mz: -L / 2, top: 0.30, dual: B };
+    for (const s of [-1, 1]) {
+      const bar = new T.Mesh(new T.BoxGeometry(0.34, 0.30, L), MAT.body);
+      bar.position.set(s * B, 0.15, 0); bar.castShadow = true; g.add(bar);
+      const face = new T.Mesh(new T.BoxGeometry(0.27, 0.014, L * 0.95), emitMat);
+      face.position.set(s * B, -0.004, 0); g.add(face);
+      for (let k = 0; k < 6; k++) {
+        const z = (k / 5 - 0.5) * L * 0.9;
+        const p = new T.Vector3(s * (B - 0.02), -0.01, z);
+        const inward = new T.Vector3(-s, 0, 0);
+        addEmitter(p, { inward, half: 0.26 });
+        if (k % 2 === 0) addSpot(p, { inward, half: 0.34, shadow: k === 2 });
+      }
+    }
+    volSpec = { kind: 'slab', w: (B + 0.14) * 2, d: L, alpha: 0.40 };
+
+  } else if (shape === 'panel') {
+    const PW = clamp(fw + 26, 40, 100) / U;
+    const PD = clamp(fh + 26, 34, 90) / U;
+    lightDim = { r: Math.max(PW, PD) * 0.55, mz: -PD / 2, top: 0.17 };
+    const frame = new T.Mesh(new T.BoxGeometry(PW, 0.16, PD), MAT.body);
+    frame.position.y = 0.09; frame.castShadow = true; g.add(frame);
+    const face = new T.Mesh(new T.PlaneGeometry(PW * 0.93, PD * 0.93), emitMat);
+    face.rotation.x = Math.PI / 2; face.position.y = 0.004; g.add(face);
+    const diff = new T.Mesh(new T.PlaneGeometry(PW * 0.98, PD * 0.98),
+      new T.MeshStandardMaterial({ color: 0xe4f2f3, emissive: col.clone(), emissiveIntensity: 0.26,
+        transparent: true, opacity: 0.22, side: T.DoubleSide, roughness: 0.85 }));
+    diff.rotation.x = Math.PI / 2; diff.position.y = 0.014; g.add(diff);
+    softEmissives.push(diff.material);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      addEmitter(new T.Vector3(sx * PW * 0.34, 0, sz * PD * 0.34), { dir0: DOWN, half: 0.62, w: 0.55 });
+    }
+    addSpot(new T.Vector3(0, 0.01, 0), { dir0: DOWN, half: 1.25, w: 0.3 });
+    const dl = new T.DirectionalLight(0xffffff, 0);
+    const tg = new T.Object3D(); tg.position.set(0, -1, 0);
+    lightGroup.add(dl); lightGroup.add(tg); dl.target = tg;
+    dl.castShadow = true;
+    dl.shadow.mapSize.set(1024, 1024);
+    dl.shadow.camera.left = -2.6; dl.shadow.camera.right = 2.6;
+    dl.shadow.camera.top = 2.6; dl.shadow.camera.bottom = -2.6;
+    dl.shadow.camera.near = 0.1; dl.shadow.camera.far = 40;
+    dl.shadow.bias = -0.0002; dl.shadow.normalBias = 0.03; dl.shadow.radius = 3;
+    dirLight = dl;
+    volSpec = { kind: 'slab', w: PW, d: PD, alpha: 0.32 };
+
+  } else if (shape === 'coax') {
+    lightDim = { r: 0.34, mz: -0.21, top: 0.44 };
+    const W = 0.42;
+    const shell = new T.Mesh(new T.BoxGeometry(W, W, W),
+      new T.MeshStandardMaterial({ color: 0x2a3236, metalness: 0.8, roughness: 0.32, transparent: true, opacity: 0.28 }));
+    shell.position.y = W / 2 + 0.02; g.add(shell);
+    const edge = new T.LineSegments(new T.EdgesGeometry(new T.BoxGeometry(W, W, W)),
+      new T.LineBasicMaterial({ color: 0x7fb2ad, transparent: true, opacity: 0.45 }));
+    edge.position.y = W / 2 + 0.02; g.add(edge);
+    const mirror = new T.Mesh(new T.PlaneGeometry(W * 0.76, W * 0.76), MAT.glass);
+    mirror.rotation.set(Math.PI / 2, 0, Math.PI / 4);
+    mirror.position.y = W / 2; g.add(mirror);
+    const src = new T.Mesh(new T.PlaneGeometry(W * 0.56, W * 0.56), emitMat);
+    src.position.set(-W / 2 + 0.01, W / 2, 0); src.rotation.y = Math.PI / 2; g.add(src);
+    const ap = new T.Mesh(new T.TorusGeometry(0.15, 0.02, 8, 32), MAT.body);
+    ap.rotation.x = Math.PI / 2; ap.position.y = 0.004; g.add(ap);
+    addEmitter(new T.Vector3(0, 0, 0), { dir0: DOWN, half: 0.16, w: 1 });
+    addSpot(new T.Vector3(0, 0.01, 0), { dir0: DOWN, half: 0.19, w: 1.3 });
+    const dl = new T.DirectionalLight(0xffffff, 0);
+    const tg = new T.Object3D(); tg.position.set(0, -1, 0);
+    lightGroup.add(dl); lightGroup.add(tg); dl.target = tg;
+    dirLight = dl;
+    volSpec = { kind: 'curtain', rTop: 0.16, alpha: 0.26 };
+
+  } else if (shape === 'dome') {
+    const R = clamp(fw * 0.8 + 14, 26, 52) / U;
+    lightDim = { r: R, mz: -R, top: R };
+    const shell = new T.Mesh(new T.SphereGeometry(R, 44, 22, 0, Math.PI * 2, 0, Math.PI / 2),
+      new T.MeshStandardMaterial({
+        color: 0xe6f4f4, emissive: col.clone(), emissiveIntensity: 0.30,
+        roughness: 0.8, metalness: 0, transparent: true, opacity: 0.30, side: T.DoubleSide,
+      }));
+    g.add(shell); softEmissives.push(shell.material); shell.material.userData.gain = 0.5;
+    const skirt = new T.Mesh(new T.TorusGeometry(R, 0.03, 10, 64), MAT.body);
+    skirt.rotation.x = Math.PI / 2; g.add(skirt);
+    for (let k = 0; k < 2; k++) {
+      const phi = (k + 1) / 3 * Math.PI / 2;
+      for (let i = 0; i < 8; i++) {
+        const a = i / 8 * Math.PI * 2 + k * 0.4;
+        const p = new T.Vector3(R * Math.cos(phi) * Math.cos(a), R * Math.sin(phi), R * Math.cos(phi) * Math.sin(a));
+        const dir0 = new T.Vector3(0, -R * 0.75, 0).sub(p).normalize();
+        addEmitter(p, { dir0, half: 0.42 });
+        if (i % 2 === 0) addSpot(p, { dir0, half: 0.95, w: 0.30 });
+      }
+    }
+    const h = new T.HemisphereLight(0xffffff, 0x0a0d0f, 0);
+    lightGroup.add(h); hemi = h;
+    volSpec = { kind: 'curtain', rTop: R * 0.99, alpha: 0.17 };
+
+  } else if (shape === 'line') {
+    const L = clamp(fw * 1.4 + 22, 44, 110) / U;
+    lightDim = { r: L * 0.3, mz: -0.17, top: 0.30 };
+    const bar = new T.Mesh(new T.BoxGeometry(L, 0.30, 0.34), MAT.body);
+    bar.position.y = 0.15; bar.castShadow = true; g.add(bar);
+    const face = new T.Mesh(new T.BoxGeometry(L * 0.95, 0.014, 0.27), emitMat);
+    face.position.y = -0.004; g.add(face);
+    for (const s of [-1, 1]) {
+      const arm = new T.Mesh(new T.CylinderGeometry(0.02, 0.02, 0.3, 8), MAT.dark);
+      arm.position.set(s * L * 0.4, 0.22, 0); g.add(arm);
+    }
+    for (let k = 0; k < 7; k++) {
+      const p = new T.Vector3((k / 6 - 0.5) * L * 0.9, -0.006, 0);
+      const inward = new T.Vector3(0, 0, -1);
+      addEmitter(p, { inward, half: 0.24 });
+      if (k % 2 === 0) addSpot(p, { inward, half: 0.32, shadow: k === 3 });
+    }
+    volSpec = { kind: 'slab', w: L, d: 0.5, alpha: 0.40 };
+
+  } else { // tunnel
+    const R = clamp(fw * 0.75 + 16, 26, 50) / U;
+    const L = clamp(fw * 1.3 + 24, 46, 110) / U;
+    lightDim = { r: R, mz: -R, top: R };
+    const tun = new T.Mesh(new T.CylinderGeometry(R, R, L, 48, 1, true, 0, Math.PI),
+      new T.MeshStandardMaterial({
+        color: 0xe6f4f4, emissive: col.clone(), emissiveIntensity: 0.28,
+        roughness: 0.82, metalness: 0, transparent: true, opacity: 0.24, side: T.DoubleSide,
+      }));
+    tun.rotation.z = Math.PI / 2; g.add(tun); softEmissives.push(tun.material); tun.material.userData.gain = 0.4;
+    for (const s of [-1, 1]) {
+      const lip = new T.Mesh(new T.TorusGeometry(R, 0.024, 8, 32, Math.PI), MAT.body);
+      lip.rotation.y = Math.PI / 2; lip.rotation.z = Math.PI / 2;
+      lip.position.x = s * L / 2; g.add(lip);
+    }
+    for (let k = 0; k < 3; k++) {
+      const px = (k / 2 - 0.5) * L * 0.7;
+      for (let i = 0; i < 3; i++) {
+        const phi = (i + 1) / 4.6 * Math.PI;
+        const py = R * Math.sin(phi), pz = R * Math.cos(phi);
+        const p = new T.Vector3(px, py, pz);
+        const dir0 = new T.Vector3(px * 0.5, -R * 0.7, -pz * 0.18).normalize();
+        addEmitter(p, { dir0, half: 0.38, w: 0.9 });
+        if (i < 2) addSpot(p, { dir0, half: 0.7, w: 0.42, shadow: k === 1 && i === 0 });
+      }
+    }
+    volSpec = { kind: 'curtain', rTop: R * 0.94, alpha: 0.19 };
+  }
+
+  lightGroup.add(g);
+  lightGroup.userData.model = g;
+  buildVolumeObjects();
+}
+
+function buildVolumeObjects() {
+  clearGroup(volumeGroup);
+  volumes = [];
+  if (!volSpec) return;
+  makeVolume(volSpec.kind, volSpec.alpha);
+}
+
+/* ── 安装、取景、光束几何 ─────────────────────────────────── */
+const _vd = new T.Vector3();
+function resolveDir(e) {
+  if (e.inward) {
+    const a = S.tilt * D2R;
+    return _vd.copy(e.inward).multiplyScalar(Math.cos(a)).addScaledVector(DOWN, Math.sin(a)).normalize();
+  }
+  return _vd.copy(e.dir0 || DOWN).normalize();
+}
+
+function applyMount() {
+  const shape = lightGeo ? lightGeo.shape : 'ring';
+  const y = shape === 'coax' ? lensFront - 0.02 : S.h / U;
+  lightGroup.position.set(0, y, 0);
+  lightGroup.rotation.y = S.azim * D2R;
+  buildBracket();
+  updatePower();
+  refreshGeometry();
+  updateHud();
+}
+
+/* 灯幕几何随高度/角度重建 */
+function refreshGeometry() {
+  const h = lightGroup.position.y;
+  const H = Math.max(h - 0.12, 0.2);   // 底面离台面 1.2 mm，避免共面 z-fighting
+  if (volSpec && volumes.length) {
+    const v = volumes[0];
+    const u = v.mat.uniforms;
+    u.uH.value = H;
+    if (volSpec.kind === 'slab') {
+      // 条光/面光/线光在空气里没有清晰边界，画成从灯具垂到台面的柱体就成了白墙。
+      // 只保留贴台面的薄雾层，光"落"在工件上，不遮挡视线。
+      // uH 必须用薄层自身高度：若传整灯高度，vT 会整段落在 shader 饱和区，
+      // 顶边不淡出，薄雾又变回一个方碗。
+      const Hs = Math.min(H * 0.42, 2.3);
+      const geo = new T.BoxGeometry(volSpec.w, Hs, volSpec.d);
+      u.uH.value = Hs;
+      v.mesh.position.y = -(H - Hs / 2);
+      v.mesh.geometry.dispose();
+      v.mesh.geometry = geo;
+      u.uW.value = volSpec.w;
+      u.uD.value = volSpec.d;
+    } else {
+      const tilt = S.tilt * D2R;
+      let rBot = volSpec.rTop - H / Math.max(Math.tan(tilt), 0.05);
+      rBot = clamp(Math.abs(rBot), 0.02, volSpec.rTop * 1.6);
+      const geo = new T.CylinderGeometry(volSpec.rTop, rBot, H, 56, 1, true);
+      geo.translate(0, -H / 2, 0);
+      u.uH.value = H;
+      v.mesh.position.y = 0;
+      v.mesh.geometry.dispose();
+      v.mesh.geometry = geo;
+    }
+    v.mesh.visible = S.beam;
+  }
+  // 聚光灯朝向跟随发光角
+  for (const s of spots) {
+    const d = resolveDir(s);
+    s.target.position.copy(s.p).addScaledVector(d, 3);
+  }
+}
+
+/* 亮度/色温/开关 → 真实灯光强度 */
+function updatePower() {
+  const col = lampColor();
+  const b = S.on ? Math.pow(S.bright / 100, 1.45) : 0;
+  const useCol = col.clone().lerp(new T.Color(1, 1, 1), 0.15);
+  for (const s of spots) {
+    s.light.color.copy(useCol);
+    s.light.intensity = b * 128 * s.w;
+    s.light.visible = S.on;
+  }
+  if (dirLight) {
+    dirLight.color.copy(useCol);
+    dirLight.intensity = b * 0.82;
+    dirLight.visible = S.on;
+  }
+  if (hemi) {
+    hemi.color.copy(useCol);
+    hemi.groundColor.setHex(0x0a0d0f);
+    hemi.intensity = b * 0.58;
+    hemi.visible = S.on;
+  }
+  for (const m of emissives) {
+    m.emissive.copy(col);
+    m.emissiveIntensity = S.on ? 0.5 + 2.8 * Math.pow(S.bright / 100, 1.2) : 0.02;
+  }
+  for (const m of softEmissives) {
+    m.emissive.copy(col);
+    m.emissiveIntensity = S.on
+      ? (0.08 + 0.42 * Math.pow(S.bright / 100, 1.2)) * (m.userData.gain === undefined ? 1 : m.userData.gain)
+      : 0.01;
+  }
+  for (const v of volumes) {
+    v.mat.uniforms.uColor.value.copy(useCol);
+    v.mat.uniforms.uAlpha.value = S.on ? v.alpha0 * (0.25 + 0.75 * Math.pow(S.bright / 100, 1.2)) : 0;
+  }
+}
+
+/* ── 照度分析 ─────────────────────────────────────────────── */
+const GRID_X = 19, GRID_Z = 15;
+let metrics = { cov: 0, uni: 0, peak: 0 };
+
+function analyse() {
+  lightGroup.updateMatrixWorld(true);
+  const m = lightGroup.matrixWorld;
+  const em = [];
+  for (const e of emitters) {
+    const p = e.p.clone().applyMatrix4(m).multiplyScalar(U);
+    const d = resolveDir(e).clone().transformDirection(m);
+    if (d.y < -0.06) em.push({ p, d, half: e.half, w: e.w });
+  }
+  if (!em.length) { metrics = { cov: 0, uni: 0, peak: 0 }; return; }
+
+  let max = 0, sum = 0, n = 0, min = Infinity;
+  const cells = [];
+  for (let iz = 0; iz < GRID_Z; iz++) {
+    for (let ix = 0; ix < GRID_X; ix++) {
+      const x = (-0.5 + (ix + 0.5) / GRID_X) * S.fovW;
+      const z = (-0.5 + (iz + 0.5) / GRID_Z) * S.fovH;
+      let e = 0;
+      for (const s of em) {
+        const dx = x - s.p.x, dy = -s.p.y, dz = z - s.p.z;
+        const d2 = dx * dx + dy * dy + dz * dz;
+        const dist = Math.sqrt(d2);
+        const cosA = (dx * s.d.x + dy * s.d.y + dz * s.d.z) / dist;
+        if (cosA <= 0.08) continue;
+        const off = Math.acos(clamp(cosA, -1, 1));
+        if (off > s.half * 1.3) continue;
+        const angFall = Math.pow(Math.cos(Math.min(off / s.half, 1) * 1.35), 4);
+        e += s.w * angFall * Math.abs(s.d.y) * 1e4 / d2;
+      }
+      cells.push(e);
+      if (e > max) max = e;
+    }
+  }
+  for (const e of cells) {
+    if (e > max * 0.15) { sum += e; n++; if (e < min) min = e; }
+  }
+  metrics = { cov: max > 0 ? n / cells.length : 0, uni: n > 0 ? clamp(min / (sum / n), 0, 1) : 0, peak: max };
+}
+
+/* ── HUD / 小窗文字 ───────────────────────────────────────── */
+function updateHud() {
+  const d = DEF[S.series] || DEF.RS;
+  const name = (LIGHTS.find(l => l.series === S.series) || {}).form || S.series;
+  analyse();
+  const on = S.on;
+  const pct = Math.round(metrics.cov * 100);
+
+  $('tkLight').textContent = S.series + ' ' + name + (on ? '' : ' · 关');
+  $('tkLight').className = 'token' + (on ? '' : ' dim');
+  $('tkBright').textContent = '亮度 ' + Math.round(S.bright) + '%';
+  $('tkTilt').textContent = d.tiltable ? ('光 ' + Math.round(S.tilt) + '°') : '光 —';
+  $('tkTilt').className = 'token ' + (d.tiltable ? 'hi' : 'dim');
+  $('tkMount').textContent = 'H ' + Math.round(S.h) + ' · ' + Math.round(S.azim) + '°';
+  $('tkCover').textContent = on ? ('覆盖 ' + pct + '%' + (metrics.uni ? ' · 均匀 ' + metrics.uni.toFixed(2) : '')) : '覆盖 —';
+  $('tkCover').className = 'token ' + (!on ? 'dim' : pct >= 70 ? 'hi' : pct > 20 ? '' : 'warn');
+
+  $('curLight').textContent = S.series + ' · ' + name;
+  $('curLight').className = 'cur-light' + (on ? '' : ' off');
+
+  $('oBright').textContent = Math.round(S.bright) + ' %';
+  $('oCct').textContent = (S.tint === 'white' ? Math.round(S.cct) : '—') + ' K';
+  $('oHeight').textContent = (lightGeo && lightGeo.shape === 'coax') ? '镜头前' : Math.round(S.h) + ' mm';
+  $('oTilt').textContent = Math.round(S.tilt) + '°';
+  $('oAzim').textContent = Math.round(S.azim) + '°';
+  $('oExpo').textContent = '×' + S.exposure.toFixed(1);
+
+  $('vmLight').textContent = S.series + ' ' + name;
+  const eon = $('vmOn');
+  eon.textContent = on ? 'ON' : 'OFF';
+  eon.className = on ? 'on' : 'off';
+  $('vmBright').textContent = Math.round(S.bright) + '%';
+  $('vmBrightBar').style.width = (on ? S.bright : 0) + '%';
+  $('vmCct').textContent = S.tint === 'white' ? (Math.round(S.cct / 100) * 100) + 'K' : '—';
+  const tn = { white: '白光', blue: '蓝光', red: '红光', green: '绿光' }[S.tint];
+  $('vmTint').textContent = tn;
+  $('vmTint').className = S.tint === 'white' ? '' : 'on';
+  $('vmTilt').textContent = d.tiltable ? Math.round(S.tilt) + '°' : '—';
+  $('vmH').textContent = Math.round(S.h) + 'mm';
+  $('vmAzim').textContent = Math.round(S.azim) + '°';
+  $('vmCov').textContent = on ? pct + '%' : '—';
+  $('vmUni').textContent = on && metrics.uni ? metrics.uni.toFixed(2) : '—';
+  $('vmWd').textContent = Math.round(S.wd);
+  $('vmFov').textContent = (2 * Math.atan((S.fovW / 2) / S.wd) * 180 / Math.PI).toFixed(1) + '°';
+  syncVMHead();
+}
+
+function syncVMHead() {
+  const fovDeg = (2 * Math.atan((S.fovW / 2) / S.wd) * 180 / Math.PI).toFixed(1);
+  $('vmTag').textContent = 'FOV ' + S.fovW + ' × ' + S.fovH + 'mm · ' + fovDeg + '°';
+  const rect = $('vmView').getBoundingClientRect();
+  if (rect.width) {
+    const px = rect.width * (5 / S.fovW);
+    $('vmBar').style.width = Math.round(clamp(px, 10, rect.width * 0.55)) + 'px';
+    $('vmBarTxt').textContent = '5 mm';
+  }
+}
+
+/* ── 主视图机位：默认锁在相机轴向高位，可切换 360° 环视 ───── */
+const CAM = { az: 0, el: 0.82, zoom: 1, dist: 20, look: new T.Vector3(), baseEl: 0.52, azBase: 0 };
+function placeMainCam() {
+  const lensLen = clamp(2.4 + S.wd / 220, 2.4, 4.2);
+  const colTop = lensFront + lensLen + 3.0 + 1.2;
+  let top, bottom, halfW, el;
+  if (S.view === 'rig') {
+    // 整机：底板到立柱顶盖全部入画。相机本体在 WD 高处（160 mm → 16 单位），
+    // 旧取景只框到光源（y≈10），相机与立柱上半截被裁掉，才显得光源是「吊」着的。
+    top = colTop + 1.4;
+    bottom = -1.6;
+    halfW = STAND.w * 0.52;
+    el = 0.52;
+  } else {
+    const yL = lightGeo && lightGeo.shape === 'coax' ? lensFront : S.h / U;
+    top = Math.max(yL + 2.4, 5);
+    bottom = -2.4;
+    halfW = lightDim ? Math.min(lightDim.r, 6) : 1;
+    el = 0.82;
+  }
+  const halfSpan = (top - bottom) / 2;
+  const radius = Math.sqrt(halfSpan * halfSpan + halfW * halfW) * 1.02;
+  CAM.dist = radius / Math.sin(mainCam.fov * D2R / 2) * 1.04;
+  CAM.look.set(0, (top + bottom) / 2 - 0.3, 0);
+  CAM.baseEl = el;
+  // 全景默认偏 26°：悬臂沿 Z 伸出，正对时与视线重合会被压成一个点，又像悬空。
+  // 特写保持正对，基准与打光判定一致。
+  CAM.azBase = S.view === 'rig' ? 26 * D2R : 0;
+  updateFill();
+  applyCam();
+}
+function applyCam() {
+  const d = CAM.dist * CAM.zoom;
+  const ce = Math.cos(CAM.el), se = Math.sin(CAM.el);
+  // az 不做限位，水平可以整圈旋转；el 限制在台面上方，避免翻到底下看不到工件
+  mainCam.position.set(
+    CAM.look.x + d * ce * Math.sin(CAM.az),
+    CAM.look.y + d * se,
+    CAM.look.z + d * ce * Math.cos(CAM.az)
+  );
+  mainCam.lookAt(CAM.look);
+  mainCam.updateMatrixWorld();
+  updateViewTag();
+}
+function resetView() {
+  CAM.az = CAM.azBase; CAM.el = CAM.baseEl; CAM.zoom = 1;
+  applyCam();
+}
+function setView(v) {
+  S.view = v;
+  document.querySelectorAll('#viewSeg button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  CAM.zoom = 1;
+  placeMainCam();
+  CAM.el = CAM.baseEl;
+  CAM.az = CAM.azBase;
+  applyCam();
+}
+function updateViewTag() {
+  const deg = ((Math.round(CAM.az * 180 / Math.PI) % 360) + 360) % 360;
+  const el = Math.round(CAM.el * 180 / Math.PI);
+  // 以「是否偏离基准」判断，而不是以开关判断：拖过就标方位，双击回位就回到「基准」
+  const atBase = Math.abs(CAM.az - CAM.azBase) < 0.005 && Math.abs(CAM.el - CAM.baseEl) < 0.005 && Math.abs(CAM.zoom - 1) < 0.01;
+  const mode = S.view === 'rig' ? '机台全景' : '打光特写';
+  $('camTagTxt').innerHTML = atBase
+    ? `${mode} · 基准`
+    : `${mode} · 方位 ${deg}° · 俯仰 ${el}°`;
+  $('camTag').classList.toggle('live', !atBase);
+}
+
+/* ── 小窗渲染：单画布 + 剪裁视口 ──────────────────────────── */
+function drawInset() {
+  const vr = $('vmView').getBoundingClientRect();
+  const cr = canvas.getBoundingClientRect();
+  if (!vr.width || !vr.height) return;
+  const x = Math.round(vr.left - cr.left);
+  const y = Math.round(cr.height - (vr.top - cr.top) - vr.height);
+  const w = Math.round(vr.width), h = Math.round(vr.height);
+
+  const vVis = volumeGroup.visible;
+  volumeGroup.visible = false;
+  fovFrame.visible = false;
+
+  renderer.setScissorTest(true);
+  renderer.setViewport(x, y, w, h);
+  renderer.setScissor(x, y, w, h);
+  renderer.setClearColor(0x030506, 1);
+  renderer.clear(true, true, true);
+  const oldExpo = renderer.toneMappingExposure;
+  renderer.toneMappingExposure = S.exposure * 0.86;
+  renderer.autoClear = false;
+  renderer.render(scene, camCam);
+  renderer.autoClear = true;
+  renderer.toneMappingExposure = oldExpo;
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, cr.width, cr.height);
+
+  volumeGroup.visible = vVis;
+  fovFrame.visible = S.fovBox;
+}
+
+/* ── 渲染循环 ─────────────────────────────────────────────── */
+let lastW = 0, lastH = 0;
+function frame() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (w !== lastW || h !== lastH) {
+    lastW = w; lastH = h;
+    renderer.setSize(w, h, false);
+    composer.setSize(w, h);
+    mainCam.aspect = w / h;
+    mainCam.updateProjectionMatrix();
+    bloom.setSize(w, h);
+    syncVMHead();
+  }
+  composer.render();
+  drawInset();
+  requestAnimationFrame(frame);
+}
+
+/* ── 交互 ─────────────────────────────────────────────────── */
+$('sBright').addEventListener('input', (e) => { S.bright = +e.target.value; updatePower(); updateHud(); });
+$('sCct').addEventListener('input', (e) => { S.cct = +e.target.value; updatePower(); updateHud(); });
+$('sHeight').addEventListener('input', (e) => { S.h = +e.target.value; applyMount(); placeMainCam(); });
+$('sTilt').addEventListener('input', (e) => { S.tilt = +e.target.value; applyMount(); });
+$('sAzim').addEventListener('input', (e) => { S.azim = +e.target.value; applyMount(); });
+$('sExpo').addEventListener('input', (e) => { S.exposure = +e.target.value / 100; updateHud(); });
+$('sOn').addEventListener('change', (e) => { S.on = e.target.checked; applyMount(); });
+
+$('tintChips').addEventListener('click', (e) => {
+  const b = e.target.closest('.chip');
+  if (!b) return;
+  S.tint = b.dataset.tint;
+  document.querySelectorAll('#tintChips .chip').forEach(c => c.classList.toggle('on', c === b));
+  $('wrapCct').classList.toggle('disabled', S.tint !== 'white');
+  updatePower();
+  updateHud();
+});
+
+$('showBeam').addEventListener('change', (e) => { S.beam = e.target.checked; refreshGeometry(); });
+$('showFov').addEventListener('change', (e) => { S.fovBox = e.target.checked; fovFrame.visible = S.fovBox; });
+$('showHard').addEventListener('change', (e) => {
+  S.hardware = e.target.checked;
+  if (lightGroup.userData.model) lightGroup.userData.model.visible = S.hardware;
+  camRig.visible = S.hardware;
+  buildBracket();
+  if (!S.hardware && S.view === 'rig') setView('macro');
+});
+$('btnReset').addEventListener('click', () => {
+  const d = DEF[S.series] || DEF.RS;
+  S.h = d.h; S.tilt = d.tilt; S.azim = 0; S.bright = 75; S.on = true;
+  $('sHeight').value = S.h; $('sTilt').value = S.tilt; $('sAzim').value = 0;
+  $('sBright').value = 75; $('sOn').checked = true;
+  applyMount(); placeMainCam();
+});
+$('backBtn').addEventListener('click', (e) => {
+  if (document.referrer && new URL(document.referrer).origin === location.origin) { e.preventDefault(); history.back(); }
+});
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  // 下限 0.8：再往里推相机会钻进罩体内部，看到的是壳体内壁而不是设备
+  CAM.zoom = clamp(CAM.zoom * Math.exp(e.deltaY * 0.0009), 0.8, 3.0);
+  applyCam();
+}, { passive: false });
+
+/* 拖拽即环视，不依赖任何开关；勾选「锁定基准机位」才禁用 */
+let spinning = false, lastX = 0, lastY = 0;
+const hideHint = () => $('navHint').classList.add('gone');
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (S.lockView) return;
+  spinning = true; lastX = e.clientX; lastY = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+  canvas.classList.add('spinning');
+  hideHint();
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (!spinning) return;
+  // 灵敏度按画布尺寸归一：小窗口里拖一整屏也不会转过头
+  const k = 900 / Math.max(canvas.clientWidth, 480);
+  CAM.az -= (e.clientX - lastX) * 0.0065 * k;
+  CAM.el = clamp(CAM.el + (e.clientY - lastY) * 0.0045 * k, 0.10, 1.48);
+  lastX = e.clientX; lastY = e.clientY;
+  applyCam();
+});
+const endSpin = () => { spinning = false; canvas.classList.remove('spinning'); };
+canvas.addEventListener('pointerup', endSpin);
+canvas.addEventListener('pointercancel', endSpin);
+canvas.addEventListener('dblclick', resetView);
+
+$('lockView').addEventListener('change', (e) => {
+  S.lockView = e.target.checked;
+  canvas.classList.toggle('orbitable', !S.lockView);
+  if (S.lockView) { resetView(); hideHint(); }
+});
+$('btnView').addEventListener('click', resetView);
+$('viewSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (b && b.dataset.view !== S.view) setView(b.dataset.view);
+});
+canvas.classList.add('orbitable');
+setTimeout(hideHint, 9000);
+
+addEventListener('resize', () => { placeMainCam(); syncVMHead(); });
+
+/* ── 启动 ─────────────────────────────────────────────────── */
+function syncControls(series) {
+  const d = DEF[series] || DEF.RS;
+  $('sHeight').min = d.range[0]; $('sHeight').max = d.range[1];
+  $('sHeight').disabled = d.range[0] === d.range[1];
+  $('sTilt').disabled = !d.tiltable;
+  $('wrapTilt').classList.toggle('disabled', !d.tiltable);
+}
+
+async function fetchLab(series) {
+  // 静态站（GitHub Pages）：数据由 lab-data.js 本地生成，
+  // 与 core/scene.py::build_lab 的返回值逐字段等价，无需 Python 后端。
+  return LabData.buildLab(series, S.fovW, S.fovH, 'area', S.wd);
+}
+
+async function loadLight(series, keepMount) {
+  S.series = series;
+  const d = await fetchLab(series);
+  if (!d || !d.ok) return;
+  lightGeo = d.light;
+  if (d.mount && !keepMount) { S.h = d.mount.h; S.tilt = d.mount.tilt; }
+  if (lightGeo.shape === 'coax') S.h = 0;
+  buildLightModel(lightGeo);
+  syncControls(series);
+  document.querySelectorAll('.light-card').forEach(c => c.classList.toggle('active', c.dataset.series === series));
+  $('sHeight').value = S.h; $('sTilt').value = S.tilt; $('sAzim').value = S.azim;
+  applyMount();
+  placeMainCam();
+}
+
+async function boot() {
+  buildCamRig();
+  const d = await fetchLab(S.series);
+  if (!d || !d.ok) { $('vmTag').textContent = '接口未就绪'; return; }
+  LIGHTS = d.lights || [];
+
+  const grid = $('lightGrid');
+  grid.innerHTML = '';
+  LIGHTS.forEach(l => {
+    const b = document.createElement('button');
+    b.className = 'light-card' + (l.series === S.series ? ' active' : '');
+    b.dataset.series = l.series;
+    b.innerHTML = '<strong>' + l.form + '</strong><span>' + l.series + '</span>';
+    b.onclick = () => loadLight(l.series, false);
+    grid.appendChild(b);
+  });
+
+  lightGeo = d.light;
+  if (d.mount) { S.h = d.mount.h; S.tilt = d.mount.tilt; }
+  if (lightGeo.shape === 'coax') S.h = 0;
+
+  buildCamRig();
+  buildLightModel(lightGeo);
+  syncControls(S.series);
+  $('sHeight').value = S.h; $('sTilt').value = S.tilt;
+  $('sBright').value = S.bright; $('sCct').value = S.cct;
+  applyMount();
+  placeMainCam();
+  CAM.az = CAM.azBase; CAM.el = CAM.baseEl; applyCam();   // 首屏即四分之三基准
+  fovFrame.visible = S.fovBox;
+  syncVMHead();
+  frame();
+}
+
+$('ver').textContent = LabData.version;
+boot();
+</script>
+</body>
+</html>
