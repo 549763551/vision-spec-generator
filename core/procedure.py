@@ -12,6 +12,8 @@
 
 from dataclasses import dataclass, field
 
+from .camera import task_requires_color
+
 
 @dataclass
 class Step:
@@ -85,7 +87,8 @@ def build_procedure(task: str, pixel_acc: float, accuracy_mm: float,
             add(node, [
                 ("分辨率", f"{cam_w}×{cam_h}", "相机选型结果"),
                 ("曝光时间", "现场按亮度实测", "静止拍摄时曝光由光强决定，无拖影上限"),
-                ("像素格式", "Mono8（黑白）", "与相机选型一致"),
+                ("像素格式", ("Color8（彩色 Bayer/RGB）" if task_requires_color(task) else "Mono8（黑白）"),
+                 "与相机选型一致"),
             ], f"视野 {fov_w:g}×{fov_h:g} mm；确认工件完整落在画面内，四周各留 10% 余量")
 
         elif node == "模板定位":

@@ -15,7 +15,7 @@ import sys
 import datetime
 
 from core import __version__
-from core.camera import select_camera
+from core.camera import select_camera, task_requires_color
 from core.lens import select_lens
 from core.light import recommend_light
 from core.controller import select_controller
@@ -150,9 +150,10 @@ def main(argv=None) -> int:
         diag_note = "未提供样张，跳过图像诊断"
 
     # --- 2. 相机 ---
+    need_color = args.need_color or task_requires_color(args.task)
     cam = select_camera(
         fov_w=fov_w, fov_h=fov_h, accuracy=args.accuracy,
-        moving=moving, speed=args.speed, need_color=args.need_color,
+        moving=moving, speed=args.speed, need_color=need_color,
         feature_px=args.feature_px, fov_margin=args.fov_margin,
     )
     fov_w_eff = fov_w * (1 + args.fov_margin)

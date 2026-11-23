@@ -27,7 +27,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from core import __version__
-from core.camera import select_camera
+from core.camera import select_camera, task_requires_color
 from core.lens import select_lens
 from core.light import recommend_light
 from core.controller import select_controller
@@ -121,7 +121,7 @@ def compute(payload: dict) -> dict:
     wd = float(payload.get("wd", 300))
     moving = bool(payload.get("moving", False))
     speed = float(payload.get("speed", 0) or 0)
-    need_color = bool(payload.get("need_color", False))
+    need_color = bool(payload.get("need_color", False)) or task_requires_color(task)
     height_var = float(payload.get("height_var", 0) or 0)
     channels = int(payload.get("channels", 1))
     channel_power = float(payload.get("channel_power", 10))

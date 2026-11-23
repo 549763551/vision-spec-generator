@@ -800,15 +800,48 @@ function buildAssembly(data){
 /* ==================================================================
    5. 四个平台模块
    ================================================================== */
-const FUNCS = [
-  {cn:'图像源',   en:'Image Source'},
-  {cn:'模板定位', en:'Template Matching'},
-  {cn:'直线查找', en:'Caliper'},
-  {cn:'构造交点', en:'Intersection'},
-  {cn:'点距测量', en:'Distance'},
-  {cn:'数据判定', en:'OK / NG'},
-  {cn:'结果输出', en:'TCP / IO'},
-];
+/* 通用节点 → 各平台常用叫法。节点链来自 /api/scene 的 flow，不再写死七个步骤。 */
+const GENERIC_EN = {
+  '图像源':'Image Source', '模板定位':'Template Matching',
+  '直线查找':'Caliper', '构造交点':'Intersection', '构造坐标系':'Fixture',
+  '点距':'Distance', '圆查找':'Circle Find', '二值化':'Threshold',
+  '颗粒分析':'Blob Analysis', '字符识别':'OCR', '条码识别':'Barcode',
+  '字符串比对':'String Compare', '颜色提取':'Color Extract',
+  '色差判定':'Color Difference', '数据判定':'OK / NG', '结果输出':'TCP / IO',
+};
+
+const NODE_NAMES = {
+  vm:{
+    '图像源':'图像源', '模板定位':'模板匹配', '直线查找':'直线查找',
+    '构造交点':'交点创建', '构造坐标系':'位置修正', '点距':'点到点距离',
+    '圆查找':'圆查找', '二值化':'二值化', '颗粒分析':'Blob 分析',
+    '字符识别':'字符识别', '条码识别':'二维码识别', '字符串比对':'字符串比对',
+    '颜色提取':'颜色提取', '色差判定':'颜色比较', '数据判定':'逻辑工具', '结果输出':'发送数据',
+  },
+  dh:{
+    '图像源':'图像采集', '模板定位':'模板匹配', '直线查找':'直线检测',
+    '构造交点':'交点', '构造坐标系':'坐标变换', '点距':'距离测量',
+    '圆查找':'圆检测', '二值化':'阈值分割', '颗粒分析':'连通域分析',
+    '字符识别':'字符识别', '条码识别':'条码识别', '字符串比对':'字符串比较',
+    '颜色提取':'颜色抽取', '色差判定':'颜色判定', '数据判定':'判断', '结果输出':'通信输出',
+  },
+  ly:{
+    '图像源':'图像输入', '模板定位':'模板定位', '直线查找':'直线查找',
+    '构造交点':'几何构造', '构造坐标系':'坐标系', '点距':'距离',
+    '圆查找':'圆查找', '二值化':'阈值', '颗粒分析':'颗粒分析',
+    '字符识别':'字符识别', '条码识别':'码识别', '字符串比对':'字符串比对',
+    '颜色提取':'颜色提取', '色差判定':'色差判定', '数据判定':'结果判定', '结果输出':'IO 输出',
+  },
+  hc:{
+    '图像源':'read_image', '模板定位':'find_shape_model', '直线查找':'measure_pos',
+    '构造交点':'intersection_lines', '构造坐标系':'vector_angle_to_rigid',
+    '点距':'distance_pp', '圆查找':'find_circle', '二值化':'threshold',
+    '颗粒分析':'connection / select_shape', '字符识别':'find_text',
+    '条码识别':'find_bar_code', '字符串比对':'tuple_compare',
+    '颜色提取':'decompose / color_to_gray', '色差判定':'difference',
+    '数据判定':'if（阈值判定）', '结果输出':'open_socket_write',
+  },
+};
 
 const PLATFORMS = [
   {
@@ -916,10 +949,12 @@ PLATFORMS.forEach((P, i) => {
       transparent:true, opacity:1}));
   g.add(body);
 
-  /* 正面 UI */
+  /* 正面 UI（场景切换时要重画节点条，留个引用） */
   const face = new T.Mesh(new T.PlaneGeometry(0.995, 0.74),
     new T.MeshBasicMaterial({map:cardCanvas(P, i), transparent:true, opacity:1}));
   face.position.z = 0.038;
+  P._idx = i;
+  P._face = face;
   g.add(face);
 
   /* 顶棱发光 */
@@ -1004,7 +1039,8 @@ function flowCanvas(P){
   g.beginPath(); g.moveTo(46, 148); g.lineTo(W-46, 148); g.stroke();
 
   /* 节点链 */
-  const x0 = 46, boxW = W - 92, boxH = 92, gap = 128, top = 176;
+  const x0 = 46, boxW = W - 92, boxH = 92,
+        gap = P.nodes.length > 7 ? 116 : 128, top = 176;
   P.nodes.forEach((n, i) => {
     const y = top + i*gap;
 
@@ -1041,7 +1077,8 @@ function flowCanvas(P){
     /* 通用功能 */
     g.font = '400 19px "Microsoft YaHei",sans-serif';
     g.fillStyle = 'rgba(255,255,255,.46)';
-    g.fillText(FUNCS[i].cn + '  ·  ' + FUNCS[i].en, x0 + 64, y + 62);
+    const generic = FLOW[i] || '';
+    g.fillText(generic + (GENERIC_EN[generic] ? '  ·  ' + GENERIC_EN[generic] : ''), x0 + 64, y + 62);
   });
 
   /* 底部说明 */
@@ -1254,6 +1291,20 @@ document.getElementById('btnReset').onclick = () => {
    ================================================================== */
 let SCENE = null;   /* 当前场景数据，来自 /api/scene */
 let SCENE_SRC = '';  /* 参数来源说明：预设 / 图纸 / URL */
+let FLOW = ['图像源','模板定位','二值化','颗粒分析','数据判定','结果输出'];
+
+/* 流程跟着当前任务走：后端给通用节点链，这里翻成四个平台的叫法 */
+function applyFlow(chain){
+  if (Array.isArray(chain) && chain.length) FLOW = chain.slice();
+  PLATFORMS.forEach(P => {
+    const map = NODE_NAMES[P.id] || {};
+    P.nodes = FLOW.map(n => map[n] || n);
+    if (P._face){
+      if (P._face.material.map) P._face.material.map.dispose();
+      P._face.material.map = cardCanvas(P, P._idx);
+    }
+  });
+}
 
 function renderLists(){
   const lp = document.getElementById('layerList');
@@ -1337,8 +1388,8 @@ function renderRight(){
     '<h2>' + P.name + '</h2>' +
     '<div class="desc">' + P.desc + '</div></div>' +
     '<table><thead><tr><th style="width:80px">通用功能</th><th>该平台节点</th></tr></thead><tbody>' +
-    P.nodes.map((n, i) => '<tr><td>' + FUNCS[i].cn + '</td>' +
-      '<td class="mono" style="color:' + P.hex + '">' + n + '</td></tr>').join('') +
+    FLOW.map((n, i) => '<tr><td>' + esc(n) + '</td>' +
+      '<td class="mono" style="color:' + P.hex + '">' + esc(P.nodes[i] || n) + '</td></tr>').join('') +
     '</tbody></table>' +
     '<div class="note"><b>导出物</b><br>' + P.fmt + '</div>' +
     '<div class="note"><b>边界</b><br>' + P.tip +
@@ -1600,6 +1651,7 @@ async function loadScene(q, src){
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || '接口返回异常');
     SCENE = d;
+    applyFlow(d.flow);
     selected = null;
     flowPanel.visible = false;
     flowPanel.material.opacity = 0;

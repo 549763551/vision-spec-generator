@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import math
 
-from .camera import select_camera, select_line_camera
+from .camera import select_camera, select_line_camera, task_requires_color
 from .lens import select_lens
 from .light import recommend_light
 from .controller import select_controller
+from .procedure import CHAINS
 
 
 def _clamp(v, lo, hi):
@@ -97,7 +98,8 @@ def build_scene(task: str, accuracy: float, fov_w: float, fov_h: float,
         moving = True
     else:
         cam = select_camera(fov_w=fov_w, fov_h=fov_h, accuracy=accuracy,
-                            moving=moving, speed=speed)
+                            moving=moving, speed=speed,
+                            need_color=task_requires_color(task))
 
     tele = (task in ("尺寸测量", "轮廓定位") and scan == "area")
     if scan == "line":
@@ -210,6 +212,7 @@ def build_scene(task: str, accuracy: float, fov_w: float, fov_h: float,
         "mode": mode,
         "inputs": {"task": task, "accuracy": accuracy, "fov": [fov_w, fov_h],
                    "wd": wd, "speed": speed, "moving": bool(moving)},
+        "flow": list(CHAINS.get(task, CHAINS["表面划痕"])),
         "geometry": {"cam": cam_geo, "lens": lens_geo, "light": light_geo},
         "labels": [
             {"id": "cam", "name": cam_geo.get("shape") == "bar" and "线阵相机" or "工业相机", "sub": cam_sub},

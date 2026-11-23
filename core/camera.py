@@ -76,6 +76,11 @@ def _ceil_div(a: float, b: float) -> int:
     return int(math.ceil(a / b))
 
 
+def task_requires_color(task: str) -> bool:
+    """颜色判别必须用彩色相机；其余任务默认黑白更灵敏。"""
+    return task == "颜色判别"
+
+
 def select_camera(fov_w: float, fov_h: float, accuracy: float,
                   moving: bool = False, speed: float = 0.0,
                   need_color: bool = False, feature_px: int = 3,
