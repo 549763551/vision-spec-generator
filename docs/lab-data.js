@@ -34,7 +34,7 @@
     TUG:  { h:30,  h_range:[16,70],  tiltable:false }
   };
 
-  var VERSION = 'v0.6.3';
+  var VERSION = 'v0.6.4';
 
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
   function r3(v) { return Math.round(v * 1000) / 1000; }

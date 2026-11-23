@@ -215,7 +215,7 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
 <body>
 <div class="app">
   <header class="topbar">
-    <a class="back" href="index.html" id="backBtn">← 项目首页</a>
+    <a class="back" href="/studio" id="backBtn">← 返回工作台</a>
     <div class="brand"><span class="brand-dot"></span><h1>光学实验室 · 打光调试</h1></div>
     <div class="top-meta">
       <span class="cur-light" id="curLight">RS · 环形光</span>
@@ -406,9 +406,12 @@ rimFill2.position.set(7, 5, -6);
 scene.add(rimFill2);
 // 造型光强度随视图切换：全景要看清机台结构，特写要保持真实布光不被冲淡
 function updateFill() {
+  // 全景要能读出黑色铝型材的结构，否则整台机台在暗场里是一团黑。
+  // 特写保持很低，避免把打光判定冲淡。
   const rig = S.view === 'rig';
-  rimFill.intensity = rig ? 0.62 : 0.20;
-  rimFill2.intensity = rig ? 0.34 : 0.10;
+  rimFill.intensity = rig ? 4.2 : 0.22;
+  rimFill2.intensity = rig ? 2.3 : 0.10;
+  scene.environmentIntensity = rig ? 0.62 : 0.30;
 }
 
 const composer = new T.EffectComposer(renderer);
@@ -474,6 +477,7 @@ MAT.plate.bumpScale = 0.005;
 
 /* ── 工件与台面 ───────────────────────────────────────────── */
 const sample = new T.Group();
+const partGroup = new T.Group();       // 只装工件，背光照明时整体抬高
 {
   const plate = new T.Mesh(new T.BoxGeometry(4.4, 0.4, 4.4), MAT.plate);
   plate.position.y = -0.2; plate.receiveShadow = true; sample.add(plate);
@@ -486,21 +490,24 @@ const sample = new T.Group();
     edge.position.set(px, -0.04, pz); edge.receiveShadow = true; sample.add(edge);
   }
 
+  // 工件单独成组：背光照明时工件要坐在发光面上（整体抬高），
+  // 台面本身不动，否则背光源会陷进台板里。
+  sample.add(partGroup);
   for (const z of [-0.575, 0.575]) {
     const m = new T.Mesh(new T.BoxGeometry(2.2, 0.3, 1.05), MAT.part);
     m.position.set(0, 0.15, z);
-    m.castShadow = true; m.receiveShadow = true; sample.add(m);
+    m.castShadow = true; m.receiveShadow = true; partGroup.add(m);
   }
   const boss = new T.Mesh(new T.CylinderGeometry(0.5, 0.53, 0.34, 56), MAT.part);
-  boss.position.y = 0.47; boss.castShadow = true; boss.receiveShadow = true; sample.add(boss);
+  boss.position.y = 0.47; boss.castShadow = true; boss.receiveShadow = true; partGroup.add(boss);
   const cham = new T.Mesh(new T.CylinderGeometry(0.43, 0.5, 0.06, 56), MAT.part);
-  cham.position.y = 0.67; cham.castShadow = true; cham.receiveShadow = true; sample.add(cham);
+  cham.position.y = 0.67; cham.castShadow = true; cham.receiveShadow = true; partGroup.add(cham);
   const groove = new T.Mesh(new T.TorusGeometry(0.29, 0.006, 8, 64), MAT.dark);
-  groove.rotation.x = Math.PI / 2; groove.position.y = 0.701; sample.add(groove);
+  groove.rotation.x = Math.PI / 2; groove.position.y = 0.701; partGroup.add(groove);
   for (const [x, z, r] of [[-1.55, 1.15, 0.5], [1.35, -1.35, -0.35]]) {
     const sc = new T.Mesh(new T.BoxGeometry(1.6, 0.004, 0.012),
       new T.MeshStandardMaterial({ color: 0xb6c0c4, metalness: 0.9, roughness: 0.18 }));
-    sc.position.set(x, 0.004, z); sc.rotation.y = r; sample.add(sc);
+    sc.position.set(x, 0.004, z); sc.rotation.y = r; partGroup.add(sc);
   }
 }
 scene.add(sample);
@@ -666,11 +673,27 @@ function buildBracket() {
     cylAt(0.095, 0.14, MAT.knob, sx * 1.24, camBodyY + 0.72, -0.10, 'x', bracket);
   }
 
-  // 光源夹持组件：真实机台用 L 型支架——横臂越到灯体上方，再由刚性立柱下探，
-  // 末端夹座咬住灯体后缘。这样夹具永远在灯体外侧，不会被灯体挡住像悬空。
+  // 光源夹持组件：按灯型分三种真实安装方式，不能再统一套 L 型悬臂。
+  const shapeNow = lightGeo ? lightGeo.shape : 'ring';
+  const dual = (lightDim && lightDim.dual) || 0;
+  if (shapeNow === 'panel') {
+    // 背光源是台面安装件：四只可调支脚直接坐在机台底板上，
+    // 不用悬臂吊着（OPT 背光的安装孔在背面/侧面，靠支架或直接摆放）。
+    const pw = (lightDim && lightDim.pw) || 3.2, pd = (lightDim && lightDim.pd) || 3.2;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1])
+      boxAt(0.44, 0.12, 0.44, MAT.dark, sx * (pw / 2 - 0.34), -0.06, sz * (pd / 2 - 0.34), bracket);
+  } else if (shapeNow === 'dome') {
+    // 圆顶光：横臂只到罩体后缘、在裙边高度夹住，不越过罩顶
+    const R = (lightDim && lightDim.r) || 1.6;
+    slider(lightY + 0.22, -(R + 0.14), 0.30, 0.22, 0);
+    boxAt(0.64, 0.36, 0.30, MAT.dark, 0, lightY + 0.20, -(R + 0.04), bracket);
+    for (const sx of [-1, 1])
+      boxAt(0.08, 0.28, 0.26, MAT.rail, sx * 0.31, lightY + 0.05, -(R + 0.04), bracket);
+    cylAt(0.095, 0.12, MAT.knob, 0, lightY + 0.41, -(R + 0.04), 'y', bracket);
+    cylAt(0.040, 0.08, MAT.bolt, 0, lightY + 0.49, -(R + 0.04), 'y', bracket);
+  } else {
   const mz = (lightDim && lightDim.mz !== undefined) ? lightDim.mz : -rad;
   const top = (lightDim && lightDim.top !== undefined) ? lightDim.top : 0.25;
-  const dual = (lightDim && lightDim.dual) || 0;
   const armY = lightY + top + 0.34;                 // 横臂在灯体上方
   const clampY = lightY + Math.min(top * 0.5, 0.24); // 夹座咬在灯体后缘中下部
   const dropLen = Math.max(armY - clampY, 0.2);
@@ -693,6 +716,7 @@ function buildBracket() {
       boxAt(0.08, 0.28, 0.24, MAT.rail, sx * 0.33, clampY - 0.10, mz + 0.06, bracket);
     cylAt(0.095, 0.12, MAT.knob, 0, clampY + 0.29, mz + 0.06, 'y', bracket);
     cylAt(0.040, 0.08, MAT.bolt, 0, clampY + 0.37, mz + 0.06, 'y', bracket);
+  }
   }
 }
 
@@ -910,33 +934,55 @@ function buildLightModel(geo) {
     volSpec = { kind: 'slab', w: (B + 0.14) * 2, d: L, alpha: 0.40 };
 
   } else if (shape === 'panel') {
-    const PW = clamp(fw + 26, 40, 100) / U;
-    const PD = clamp(fh + 26, 34, 90) / U;
-    lightDim = { r: Math.max(PW, PD) * 0.55, mz: -PD / 2, top: 0.17 };
-    const frame = new T.Mesh(new T.BoxGeometry(PW, 0.16, PD), MAT.body);
-    frame.position.y = 0.09; frame.castShadow = true; g.add(frame);
-    const face = new T.Mesh(new T.PlaneGeometry(PW * 0.93, PD * 0.93), emitMat);
-    face.rotation.x = Math.PI / 2; face.position.y = 0.004; g.add(face);
-    const diff = new T.Mesh(new T.PlaneGeometry(PW * 0.98, PD * 0.98),
-      new T.MeshStandardMaterial({ color: 0xe4f2f3, emissive: col.clone(), emissiveIntensity: 0.26,
-        transparent: true, opacity: 0.22, side: T.DoubleSide, roughness: 0.85 }));
-    diff.rotation.x = Math.PI / 2; diff.position.y = 0.014; g.add(diff);
+    // 面光源按 OPT 背光源（FL / FLA / FLC / FLP 系列）的真实用法建模：
+    // 箱体坐在台面上、发光面朝上，工件置于发光面上方，相机俯视得到剪影。
+    // 不是「悬在工件上方往下打」——那是前光；OPT 的中孔型（FLC、FLA-K）
+    // 才开孔做前光，这里用侧栏的「前置照明」开关表达，不动标准背光位。
+    const PW = clamp(fw + 30, 44, 112) / U;
+    const PD = clamp(fh + 30, 38, 96) / U;
+    const BH = 0.40;                                   // 箱体高 40 mm
+    lightDim = { r: Math.max(PW, PD) * 0.52, mz: -PD / 2, top: BH + 0.02, table: true, pw: PW, pd: PD };
+    const frame = new T.Mesh(new T.BoxGeometry(PW, BH, PD), MAT.body);
+    frame.position.y = BH / 2; frame.castShadow = true; frame.receiveShadow = true; g.add(frame);
+    // 顶面发光面朝上（+Y）
+    const faceMat = emitMat.clone();
+    faceMat.emissiveIntensity = 1.25;
+    const face = new T.Mesh(new T.PlaneGeometry(PW - 0.12, PD - 0.12), faceMat);
+    face.rotation.x = -Math.PI / 2; face.position.y = BH + 0.004; g.add(face);
+    const diff = new T.Mesh(new T.PlaneGeometry(PW - 0.07, PD - 0.07),
+      new T.MeshStandardMaterial({ color: 0xf3f8f8, emissive: col.clone(), emissiveIntensity: 0.38,
+        transparent: true, opacity: 0.40, side: T.DoubleSide, roughness: 0.96 }));
+    diff.rotation.x = -Math.PI / 2; diff.position.y = BH + 0.009; g.add(diff);
     softEmissives.push(diff.material);
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-      addEmitter(new T.Vector3(sx * PW * 0.34, 0, sz * PD * 0.34), { dir0: DOWN, half: 0.62, w: 0.55 });
+    // 窄边框压条：四边各一条，露出有效发光区
+    for (const sx of [-1, 1])
+      boxAt(0.10, 0.05, PD, MAT.dark, sx * (PW / 2 - 0.05), BH + 0.02, 0, g);
+    for (const sz of [-1, 1])
+      boxAt(PW, 0.05, 0.10, MAT.dark, 0, BH + 0.02, sz * (PD / 2 - 0.05), g);
+    // 平行膜（PHFS）：表面是一排细齿，把发散光折成近平行
+    if (S.series === 'PHFS') {
+      const pitch = 0.055, n = Math.floor(PD / pitch);
+      for (let i = -n / 2; i <= n / 2; i++) {
+        const rib = new T.Mesh(new T.BoxGeometry(PW - 0.14, 0.008, 0.012), MAT.body);
+        rib.position.set(0, BH + 0.016, i * pitch); g.add(rib);
+      }
     }
-    addSpot(new T.Vector3(0, 0.01, 0), { dir0: DOWN, half: 1.25, w: 0.3 });
+    // 侧边电源/信号接头
+    for (const sz of [-1, 1])
+      cylAt(0.075, 0.16, MAT.body, PW / 2 + 0.06, BH * 0.55, sz * PD * 0.22, 'x', g);
+    // 背光是从下往上的透射光：方向光向上，工件顶面不受直射 → 小窗呈剪影
     const dl = new T.DirectionalLight(0xffffff, 0);
-    const tg = new T.Object3D(); tg.position.set(0, -1, 0);
-    lightGroup.add(dl); lightGroup.add(tg); dl.target = tg;
+    const tg = new T.Object3D(); tg.position.set(0, 2.2, 0);
+    lightGroup.add(dl); lightGroup.add(tg);
+    dl.position.set(0, -1.2, 0); dl.target = tg;
     dl.castShadow = true;
     dl.shadow.mapSize.set(1024, 1024);
-    dl.shadow.camera.left = -2.6; dl.shadow.camera.right = 2.6;
-    dl.shadow.camera.top = 2.6; dl.shadow.camera.bottom = -2.6;
-    dl.shadow.camera.near = 0.1; dl.shadow.camera.far = 40;
+    dl.shadow.camera.left = -3; dl.shadow.camera.right = 3;
+    dl.shadow.camera.top = 3; dl.shadow.camera.bottom = -3;
+    dl.shadow.camera.near = 0.1; dl.shadow.camera.far = 30;
     dl.shadow.bias = -0.0002; dl.shadow.normalBias = 0.03; dl.shadow.radius = 3;
     dirLight = dl;
-    volSpec = { kind: 'slab', w: PW, d: PD, alpha: 0.32 };
+    volSpec = null;                                    // 背光不画光幕柱体
 
   } else if (shape === 'coax') {
     lightDim = { r: 0.34, mz: -0.21, top: 0.44 };
@@ -964,75 +1010,134 @@ function buildLightModel(geo) {
 
   } else if (shape === 'dome') {
     const R = clamp(fw * 0.8 + 14, 26, 52) / U;
-    lightDim = { r: R, mz: -R, top: R };
-    const shell = new T.Mesh(new T.SphereGeometry(R, 44, 22, 0, Math.PI * 2, 0, Math.PI / 2),
-      new T.MeshStandardMaterial({
-        color: 0xe6f4f4, emissive: col.clone(), emissiveIntensity: 0.30,
-        roughness: 0.8, metalness: 0, transparent: true, opacity: 0.30, side: T.DoubleSide,
-      }));
-    g.add(shell); softEmissives.push(shell.material); shell.material.userData.gain = 0.5;
-    const skirt = new T.Mesh(new T.TorusGeometry(R, 0.03, 10, 64), MAT.body);
+    // 真实圆顶光（OPT DS / 无影光）：倒扣的碗，顶部留一个镜头孔，
+    // 相机从孔里往下看；底部整圈敞开罩住工件。旧版是完整半球，
+    // 立柱只能从罩体外面穿过去，看起来像「没挖洞」。
+    const holeR = 1.05;                                   // 明显大于镜头外径 0.6，能看到镜头孔
+    const holeT = Math.asin(clamp(holeR / R, 0.05, 0.80));
+    const holeY = Math.sqrt(Math.max(R * R - holeR * holeR, 0.01));
+    lightDim = { r: R, mz: -R, top: 0.22, dome: true, holeR: holeR, holeY: holeY };
+    // 外壳：深灰铝壳，半透明以便看见腔体结构
+    const outer = new T.Mesh(
+      new T.SphereGeometry(R, 48, 26, 0, Math.PI * 2, holeT, Math.PI / 2 - holeT),
+      new T.MeshStandardMaterial({ color: 0xdbe7e7, metalness: 0.25, roughness: 0.58,
+        transparent: true, opacity: 0.30, side: T.DoubleSide }));
+    outer.castShadow = true; g.add(outer);
+    // 内壁：白色漫反射，光在腔内多次反射才均匀
+    const inner = new T.Mesh(
+      new T.SphereGeometry(R - 0.04, 48, 26, 0, Math.PI * 2, holeT, Math.PI / 2 - holeT),
+      new T.MeshStandardMaterial({ color: 0xf4f8f8, emissive: col.clone(), emissiveIntensity: 0.42,
+        roughness: 0.94, metalness: 0, transparent: true, opacity: 0.62, side: T.DoubleSide }));
+    g.add(inner); softEmissives.push(inner.material); inner.material.userData.gain = 0.5;
+    // 顶部镜头孔加强圈 + 底部裙边
+    const ring = new T.Mesh(new T.TorusGeometry(holeR, 0.05, 12, 48), MAT.body);
+    ring.rotation.x = Math.PI / 2; ring.position.y = holeY; g.add(ring);
+    const skirt = new T.Mesh(new T.TorusGeometry(R, 0.035, 10, 64), MAT.body);
     skirt.rotation.x = Math.PI / 2; g.add(skirt);
-    for (let k = 0; k < 2; k++) {
-      const phi = (k + 1) / 3 * Math.PI / 2;
-      for (let i = 0; i < 8; i++) {
-        const a = i / 8 * Math.PI * 2 + k * 0.4;
-        const p = new T.Vector3(R * Math.cos(phi) * Math.cos(a), R * Math.sin(phi), R * Math.cos(phi) * Math.sin(a));
-        const dir0 = new T.Vector3(0, -R * 0.75, 0).sub(p).normalize();
-        addEmitter(p, { dir0, half: 0.42 });
-        if (i % 2 === 0) addSpot(p, { dir0, half: 0.95, w: 0.30 });
-      }
+    // 灯珠沿底部内圈向上打，经腔体多次反射后从顶部均匀落下
+    for (let i = 0; i < 18; i++) {
+      const a = i / 18 * Math.PI * 2;
+      const p = new T.Vector3(Math.cos(a) * (R - 0.14), 0.06, Math.sin(a) * (R - 0.14));
+      const dir0 = new T.Vector3(-Math.cos(a) * 0.30, 1, -Math.sin(a) * 0.30).normalize();
+      addEmitter(p, { dir0, half: 0.44 });
+      if (i % 3 === 0) addSpot(p, { dir0, half: 0.92, w: 0.28 });
     }
     const h = new T.HemisphereLight(0xffffff, 0x0a0d0f, 0);
     lightGroup.add(h); hemi = h;
-    volSpec = { kind: 'curtain', rTop: R * 0.99, alpha: 0.17 };
+    volSpec = { kind: 'curtain', rTop: R * 0.96, alpha: 0.13 };
 
   } else if (shape === 'line') {
-    const L = clamp(fw * 1.4 + 22, 44, 110) / U;
-    lightDim = { r: L * 0.3, mz: -0.17, top: 0.30 };
-    const bar = new T.Mesh(new T.BoxGeometry(L, 0.30, 0.34), MAT.body);
-    bar.position.y = 0.15; bar.castShadow = true; g.add(bar);
-    const face = new T.Mesh(new T.BoxGeometry(L * 0.95, 0.014, 0.27), emitMat);
-    face.position.y = -0.004; g.add(face);
-    for (const s of [-1, 1]) {
-      const arm = new T.Mesh(new T.CylinderGeometry(0.02, 0.02, 0.3, 8), MAT.dark);
-      arm.position.set(s * L * 0.4, 0.22, 0); g.add(arm);
+    // OPT 线光源（LPG / LSA 系列）实物是长条厚灯箱：底部一条窄缝出光，
+    // 顶部一排散热鳍片与风扇，端部走线接头。配线阵相机逐行扫描，
+    // 不是细圆管，也不是靠两根细杆斜吊着的灯条。
+    const L = clamp(fw * 1.4 + 24, 46, 112) / U;
+    const W = 0.44, H = 0.64;
+    lightDim = { r: L * 0.30, mz: -W / 2, top: H + 0.10 };
+    const bar = new T.Mesh(new T.BoxGeometry(L, H, W), MAT.body);
+    bar.position.y = H / 2; bar.castShadow = true; g.add(bar);
+    // 顶部散热鳍片
+    for (let k = 0; k < 9; k++)
+      boxAt(0.05, 0.11, W * 0.88, MAT.rail, (k / 8 - 0.5) * L * 0.90, H + 0.055, 0, g);
+    // 风扇（线光功率大，实物几乎都带风扇）
+    for (const sgn of [-1, 1])
+      cylAt(0.15, 0.05, MAT.dark, sgn * L * 0.30, H + 0.03, 0, 'y', g);
+    // 底部窄缝发光面 + 两侧挡光板
+    const face = new T.Mesh(new T.BoxGeometry(L * 0.94, 0.02, 0.14), emitMat);
+    face.position.y = -0.008; g.add(face);
+    for (const sz of [-1, 1])
+      boxAt(L * 0.96, 0.10, 0.06, MAT.dark, 0, -0.02, sz * 0.09, g);
+    // 端部接头
+    cylAt(0.06, 0.14, MAT.body, L / 2 + 0.05, H * 0.62, 0, 'x', g);
+    // 灯珠沿缝排成一线，向下
+    for (let k = 0; k < 11; k++) {
+      const p = new T.Vector3((k / 10 - 0.5) * L * 0.90, -0.012, 0);
+      addEmitter(p, { dir0: DOWN, half: 0.22 });
+      if (k % 2 === 0) addSpot(p, { dir0: DOWN, half: 0.30, shadow: k === 5 });
     }
-    for (let k = 0; k < 7; k++) {
-      const p = new T.Vector3((k / 6 - 0.5) * L * 0.9, -0.006, 0);
-      const inward = new T.Vector3(0, 0, -1);
-      addEmitter(p, { inward, half: 0.24 });
-      if (k % 2 === 0) addSpot(p, { inward, half: 0.32, shadow: k === 3 });
-    }
-    volSpec = { kind: 'slab', w: L, d: 0.5, alpha: 0.40 };
+    volSpec = { kind: 'slab', w: L, d: 0.36, alpha: 0.32 };
 
   } else { // tunnel
-    const R = clamp(fw * 0.75 + 16, 26, 50) / U;
-    const L = clamp(fw * 1.3 + 24, 46, 110) / U;
-    lightDim = { r: R, mz: -R, top: R };
-    const tun = new T.Mesh(new T.CylinderGeometry(R, R, L, 48, 1, true, 0, Math.PI),
-      new T.MeshStandardMaterial({
-        color: 0xe6f4f4, emissive: col.clone(), emissiveIntensity: 0.28,
-        roughness: 0.82, metalness: 0, transparent: true, opacity: 0.24, side: T.DoubleSide,
-      }));
-    tun.rotation.z = Math.PI / 2; g.add(tun); softEmissives.push(tun.material); tun.material.userData.gain = 0.4;
-    for (const s of [-1, 1]) {
-      const lip = new T.Mesh(new T.TorusGeometry(R, 0.024, 8, 32, Math.PI), MAT.body);
-      lip.rotation.y = Math.PI / 2; lip.rotation.z = Math.PI / 2;
-      lip.position.x = s * L / 2; g.add(lip);
+    // OPT 拱形/隧道光源（LVS / LIU 系列）实物是「长条凹槽灯」：
+    // 深色铝外壳 + 白色漫反射拱形内衬 + 底部灯珠向上打，两端有端盖，
+    // 侧面带散热风扇，拱顶留一条纵向开口让镜头看进去，可做得很长配线阵。
+    // 旧版是一个半透明玻璃筒，既没外壳也没开口，不像实物。
+    const R = clamp(fw * 0.62 + 16, 22, 44) / U;      // 拱内半径
+    const L = clamp(fw * 1.60 + 32, 60, 140) / U;     // 隧道长度（沿 X），至少 60 mm 才像长条凹槽灯
+    lightDim = { r: R, mz: -R, top: 0.10, tunnel: true };
+    const slotW = clamp(fw * 0.42 + 0.9, 1.1, 1.9);   // 拱顶纵向开口宽度
+    const shellR = R + 0.10;
+    // 拱顶是真开口：左右两片半拱，按缝宽反算缺口半角，镜头直接从缝里看下去。
+    // 旧版是完整半圆筒只贴两条压条，等于没开洞，从上面看仍被壳挡住。
+    const gapA = Math.asin(Math.min(0.92, (slotW / 2) / shellR));
+    const shellMat = new T.MeshStandardMaterial({ color: 0x2b3235, metalness: 0.58, roughness: 0.46,
+      transparent: true, opacity: 0.55, side: T.DoubleSide });
+    const linerMat = new T.MeshStandardMaterial({ color: 0xc6d0d0, emissive: col.clone(), emissiveIntensity: 0.30,
+      roughness: 0.95, metalness: 0, side: T.DoubleSide });
+    linerMat.userData.gain = 0.62;   // 内衬面积大，压低自发光，避免整罩过曝成一团白
+    softEmissives.push(linerMat);
+    for (const sgn of [-1, 1]) {
+      const start = sgn < 0 ? 0 : Math.PI / 2 + gapA;
+      const span = Math.PI / 2 - gapA;
+      const sh = new T.Mesh(new T.CylinderGeometry(shellR, shellR, L, 26, 1, true, start, span), shellMat);
+      sh.rotation.z = Math.PI / 2; sh.castShadow = true; g.add(sh);
+      const ln = new T.Mesh(new T.CylinderGeometry(R, R, L - 0.08, 26, 1, true, start, span), linerMat);
+      ln.rotation.z = Math.PI / 2; g.add(ln);
     }
+    // 缝口两条压条，压在开口两侧
+    for (const sz of [-1, 1])
+      boxAt(L, 0.10, 0.12, MAT.dark, 0, R + 0.03, sz * slotW / 2, g);
+    // 端盖：两端半圆加强框 + 两侧立柱
+    for (const sgn of [-1, 1]) {
+      const cap = new T.Mesh(new T.TorusGeometry(R + 0.05, 0.065, 10, 44, Math.PI), MAT.body);
+      cap.rotation.y = Math.PI / 2;
+      cap.position.x = sgn * L / 2; g.add(cap);
+      for (const sz of [-1, 1])
+        boxAt(0.10, R * 0.55, 0.12, MAT.rail, sgn * L / 2, R * 0.27, sz * (R + 0.02), g);
+    }
+    // 侧面散热风扇
+    for (const sgn of [-1, 1]) for (let k = 0; k < 4; k++) {
+      const fx = (k / 3 - 0.5) * L * 0.72;
+      cylAt(0.16, 0.05, MAT.dark, fx, R * 0.52, sgn * (R + 0.11), 'z', g);
+      cylAt(0.06, 0.07, MAT.body, fx, R * 0.52, sgn * (R + 0.14), 'z', g);
+    }
+    // 底部安装脚
+    for (const sgn of [-1, 1]) {
+      boxAt(L * 0.88, 0.10, 0.26, MAT.dark, 0, -0.03, sgn * (R - 0.12), g);
+      for (const e of [-1, 1]) cylAt(0.05, 0.06, MAT.bolt, e * L * 0.36, 0.02, sgn * (R - 0.12), 'y', g);
+    }
+    // 灯珠沿内弧三层排布，朝拱心
     for (let k = 0; k < 3; k++) {
-      const px = (k / 2 - 0.5) * L * 0.7;
-      for (let i = 0; i < 3; i++) {
-        const phi = (i + 1) / 4.6 * Math.PI;
-        const py = R * Math.sin(phi), pz = R * Math.cos(phi);
+      const phi = 0.25 + k * 0.40;
+      const py = Math.sin(phi) * R * 0.94, pz = Math.cos(phi) * R * 0.94;
+      for (let i = 0; i < 7; i++) {
+        const px = (i / 6 - 0.5) * L * 0.88;
         const p = new T.Vector3(px, py, pz);
-        const dir0 = new T.Vector3(px * 0.5, -R * 0.7, -pz * 0.18).normalize();
-        addEmitter(p, { dir0, half: 0.38, w: 0.9 });
-        if (i < 2) addSpot(p, { dir0, half: 0.7, w: 0.42, shadow: k === 1 && i === 0 });
+        const dir0 = new T.Vector3(0, -py * 0.55, -pz).normalize();
+        addEmitter(p, { dir0, half: 0.40, w: 0.9 });
+        if (i % 2 === 0) addSpot(p, { dir0, half: 0.82, w: 0.30, shadow: k === 1 && i === 3 });
       }
     }
-    volSpec = { kind: 'curtain', rTop: R * 0.94, alpha: 0.19 };
+    volSpec = { kind: 'curtain', rTop: R * 0.94, alpha: 0.16 };
   }
 
   lightGroup.add(g);
@@ -1059,9 +1164,14 @@ function resolveDir(e) {
 
 function applyMount() {
   const shape = lightGeo ? lightGeo.shape : 'ring';
-  const y = shape === 'coax' ? lensFront - 0.02 : S.h / U;
+  // 面光源是背光位：箱体坐在台面上（y=0），发光面朝上，
+  // 工件整体抬到发光面上方；否则箱体会陷进台板、工件又埋进箱体。
+  const onTable = shape === 'panel';
+  const y = shape === 'coax' ? lensFront - 0.02 : (onTable ? 0 : S.h / U);
   lightGroup.position.set(0, y, 0);
   lightGroup.rotation.y = S.azim * D2R;
+  partGroup.position.y = onTable ? 0.412 : 0;
+  fovFrame.position.y = onTable ? 0.43 : 0;
   buildBracket();
   updatePower();
   refreshGeometry();
@@ -1152,6 +1262,20 @@ let metrics = { cov: 0, uni: 0, peak: 0 };
 
 function analyse() {
   lightGroup.updateMatrixWorld(true);
+  // 背光 / 圆顶光是「透射 / 腔内漫反射」照明，下面这套反射式直射网格模型不适用：
+  // 背光按发光面相对 FOV 的投影算覆盖（发光面比视野大即全覆盖），
+  // 圆顶光工件被罩在腔内，同样按全覆盖计。均匀度取决于扩散板与腔体，
+  // 不做定量仿真，uni 留 0 让 HUD 显示「—」，避免编一个假数字。
+  if (lightGeo && lightGeo.shape === 'panel' && lightDim && lightDim.pw) {
+    const pw = Math.max(lightDim.pw - 0.12, 0.1) * U;
+    const pd = Math.max(lightDim.pd - 0.12, 0.1) * U;
+    metrics = { cov: clamp((pw / S.fovW) * (pd / S.fovH), 0, 1), uni: 0, peak: 0 };
+    return;
+  }
+  if (lightGeo && lightGeo.shape === 'dome') {
+    metrics = { cov: 1, uni: 0, peak: 0 };
+    return;
+  }
   const m = lightGroup.matrixWorld;
   const em = [];
   for (const e of emitters) {
