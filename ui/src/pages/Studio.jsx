@@ -9,10 +9,11 @@ const PRESETS = [
   { k: 'p1', label: '小视野精测', task: '表面划痕', accuracy: 0.01, fov_w: 12, fov_h: 10, wd: 130, moving: false, speed: 0 },
   { k: 'p2', label: '字符识别', task: '平面字符', accuracy: 0.05, fov_w: 40, fov_h: 33, wd: 300, moving: false, speed: 0 },
   { k: 'p3', label: '飞拍', task: '表面划痕', accuracy: 0.02, fov_w: 30, fov_h: 20, wd: 200, moving: true, speed: 200 },
+  { k: 'p4', label: '曲面瓶盖字符', task: '平面字符', surface: '曲面', accuracy: 0.05, fov_w: 30, fov_h: 30, wd: 180, moving: false, speed: 0 },
 ]
 
 const EMPTY_FORM = {
-  task: '表面划痕', accuracy: 0.03, fov_w: 15, fov_h: 12, wd: 160,
+  task: '表面划痕', surface: '平整', accuracy: 0.03, fov_w: 15, fov_h: 12, wd: 160,
   moving: false, speed: 200, height_var: 0, channels: 2, channel_power: 10, program: false,
 }
 
@@ -45,7 +46,7 @@ export default function Studio() {
     const q = qs.get('preset')
     const hit = PRESETS.find((p) => p.k === q)
     if (hit) {
-      const next = { ...EMPTY_FORM, task: hit.task, accuracy: hit.accuracy, fov_w: hit.fov_w, fov_h: hit.fov_h, wd: hit.wd, moving: hit.moving, speed: hit.speed }
+      const next = { ...EMPTY_FORM, task: hit.task, surface: hit.surface || EMPTY_FORM.surface, accuracy: hit.accuracy, fov_w: hit.fov_w, fov_h: hit.fov_h, wd: hit.wd, moving: hit.moving, speed: hit.speed }
       setForm(next)
       setPreset(hit.k)
       run(next)
@@ -84,7 +85,7 @@ export default function Studio() {
   }
 
   function applyPreset(p) {
-    const next = { ...form, task: p.task, accuracy: p.accuracy, fov_w: p.fov_w, fov_h: p.fov_h, wd: p.wd, moving: p.moving, speed: p.speed }
+    const next = { ...form, task: p.task, surface: p.surface || form.surface, accuracy: p.accuracy, fov_w: p.fov_w, fov_h: p.fov_h, wd: p.wd, moving: p.moving, speed: p.speed }
     setForm(next)
     setPreset(p.k)
     run(next)
@@ -229,6 +230,12 @@ export default function Studio() {
             <Field label="检测任务" htmlFor="task">
               <select id="task" className={inputCls} value={form.task} onChange={(e) => set({ task: e.target.value })}>
                 {(tasks.length ? tasks : [form.task]).map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </Field>
+
+            <Field label="工件表面" htmlFor="surface" hint="决定高角度是否改低角度">
+              <select id="surface" className={inputCls} value={form.surface} onChange={(e) => set({ surface: e.target.value })}>
+                {['平整', '曲面', '高反光', '镜面'].map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </Field>
 

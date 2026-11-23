@@ -60,6 +60,8 @@ def main(argv=None) -> int:
     p.add_argument("--need-color", action="store_true", help="必须保留颜色信息")
     p.add_argument("--boost-color", default="", help="需要突出的颜色：红/绿/蓝/黄/青/品红")
     p.add_argument("--suppress-color", default="", help="需要压掉的颜色")
+    p.add_argument("--surface", choices=["平整", "曲面", "高反光", "镜面"], default="",
+                   help="工件表面性质；曲面/高反光会把高角度环形光改为 30°~45° 低角度")
     p.add_argument("--feature-px", type=int, default=3, help="缺陷至少占几个像素，默认 3")
     p.add_argument("--fov-margin", type=float, default=0.0, help="视野余量，0.2 表示每边放大 20%%")
     p.add_argument("--channels", type=int, default=1, help="光源接线路数（不是光源个数），默认 1")
@@ -174,6 +176,7 @@ def main(argv=None) -> int:
         task=args.task, fov_w=fov_w_eff, fov_h=fov_h_eff,
         boost_color=args.boost_color, suppress_color=args.suppress_color,
         diag=diag.as_dict() if diag else None,
+        surface=args.surface,
     )
 
     # --- 5. 控制器 ---
@@ -217,7 +220,8 @@ def main(argv=None) -> int:
 
     # --- 8. 控制台摘要（答辩现场可直接念）---
     print("=" * 62)
-    print(f"成像方案　{args.task}　精度 {args.accuracy:g}mm　视野 {fov_w:g}×{fov_h:g}mm")
+    surface_note = f"　表面 {args.surface}" if args.surface else ""
+    print(f"成像方案　{args.task}{surface_note}　精度 {args.accuracy:g}mm　视野 {fov_w:g}×{fov_h:g}mm")
     print("=" * 62)
     print(f"相机    {cam.megapixel:g}MP  {cam.width_px}×{cam.height_px}  "
           f"{cam.sensor_name}  {cam.color_mode}")

@@ -126,6 +126,7 @@ def compute(payload: dict) -> dict:
     channels = int(payload.get("channels", 1))
     channel_power = float(payload.get("channel_power", 10))
     program = bool(payload.get("program", False))
+    surface = str(payload.get("surface", "") or "")
 
     # 图像诊断（可选，失败降级）
     diag = None
@@ -182,7 +183,8 @@ def compute(payload: dict) -> dict:
                        need_precision_measure=(task == "尺寸测量"),
                        height_variation=height_var)
     light = recommend_light(task=task, fov_w=fov_w, fov_h=fov_h,
-                            diag=diag.as_dict() if diag else None)
+                            diag=diag.as_dict() if diag else None,
+                            surface=surface)
     ctrl = select_controller(light_channels=channels, channel_power_w=channel_power,
                              need_program_control=program,
                              exposure_max_us=cam.exposure_max_us)
@@ -205,7 +207,8 @@ def compute(payload: dict) -> dict:
     # 生成一份完整方案书，供"打开完整报告"用
     inputs = {"task": task, "accuracy": accuracy, "fov": (fov_w, fov_h), "wd": wd,
               "moving": moving, "speed": speed, "need_color": need_color,
-              "boost_color": "", "suppress_color": "", "height_var": height_var}
+              "boost_color": "", "suppress_color": "", "height_var": height_var,
+              "surface": surface}
     html_text = build_html(inputs, diag, cam, lens, light, ctrl, val, version=__version__)
     os.makedirs(OUT, exist_ok=True)
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")

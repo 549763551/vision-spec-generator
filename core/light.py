@@ -59,7 +59,8 @@ class LightSpec:
 def recommend_light(task: str, fov_w: float, fov_h: float,
                     boost_color: str = "", suppress_color: str = "",
                     diag: dict | None = None,
-                    install_height_limited: bool = False) -> LightSpec:
+                    install_height_limited: bool = False,
+                    surface: str = "") -> LightSpec:
     """给出光源方案。
 
     参数
@@ -69,6 +70,11 @@ def recommend_light(task: str, fov_w: float, fov_h: float,
       suppress_color  : 需要压掉的颜色（用互补色打暗）
       diag            : 图像诊断结果（可选），用于追加修正建议
       install_height_limited : 机台限高，需要转角同轴等替代结构
+      surface         : 工件表面：平整 / 曲面 / 高反光 / 镜面（默认按平整处理）
+
+    重要修正：任务名只描述"检什么"，不描述"工件长什么样"。平面字符若落在
+    曲面亮盖上，90° 直下打会产生镜面强反光。这里允许 surface 显式声明，
+    也允许 diag 的过曝+边缘偏软反推疑似曲面反光，把光路改到 30°~45° 低角度。
     """
     steps = []
     warnings = []
@@ -81,6 +87,42 @@ def recommend_light(task: str, fov_w: float, fov_h: float,
         direction, form, series, tips = "高角度", "环形光 90°", "RS", "任务未匹配专用规则，按平整表面处理"
         warnings.append(f"任务类型「{task}」没有对应规则，建议人工确认光路")
     steps.append(f"检测任务「{task}」→ {form}（{series}），方向 {direction}：{tips}")
+    angle = ("90°" if direction == "高角度" else ("30°" if direction == "低角度" else ""))
+
+    # --- 1b. 表面形状 / 反光修正 ---
+    # 任务名只说"检什么"，不说"工件是什么面"。高角度 90° 是按平整漫反射面外推的，
+    # 弧面亮盖上会形成镜面强反光；诊断过曝 + 边缘偏软时也按同一逻辑修正。
+    # 这一步让"看图说话"真正回写光路，而不是只写一条警告。
+    glossy_tasks = ("平面字符", "二维码", "颜色判别")
+    surface_key = (surface or "").strip()
+    curved_or_glossy = surface_key in (
+        "曲面", "弧面", "曲面弧面", "高反光", "高反光面", "镜面", "亮面",
+    )
+    diag_over = diag.get("overexposed_ratio") if diag else None
+    diag_lap = diag.get("lap_var") if diag else None
+    diag_suspect = (
+        task in glossy_tasks
+        and diag_over is not None and diag_over > 0.03
+        and diag_lap is not None and diag_lap < 15
+    )
+
+    if direction == "高角度" and (curved_or_glossy or diag_suspect):
+        old = f"{direction} · {form}（{angle}）"
+        if diag_suspect and not curved_or_glossy:
+            basis = (
+                f"图像过曝 {diag_over:.1%} 且拉普拉斯方差 {diag_lap:.0f}，"
+                f"疑似曲面亮面镜面反射/角度过正"
+            )
+        else:
+            basis = f"工件表面声明为「{surface_key}」"
+        direction = "低角度"
+        form = "环形光 30°~45°（低角度掠射）"
+        series = "RS"
+        angle = "30°~45°"
+        steps.append(
+            f"表面修正：{basis}；90° 直下打会在弧面亮面形成镜面强反光、局部过曝，"
+            f"由 {old} 改为 {form}，避开镜头直射方向；发光面尺寸仍按视野×1.2"
+        )
 
     # --- 2. 亮场 / 暗场 ---
     field_map = {
@@ -116,7 +158,10 @@ def recommend_light(task: str, fov_w: float, fov_h: float,
 
     # --- 5. 偏振 ---
     polarization = False
-    if direction in ("同轴", "高角度") and task in ("高反光金属", "平面字符", "二维码", "颜色判别"):
+    if (
+        (direction in ("同轴", "高角度") and task in ("高反光金属", "平面字符", "二维码", "颜色判别"))
+        or curved_or_glossy or diag_suspect
+    ):
         polarization = True
         steps.append("偏振：镜面/高反光面建议加起偏器+检偏器，旋转检偏器压掉特定方向的强反光")
 
@@ -140,9 +185,12 @@ def recommend_light(task: str, fov_w: float, fov_h: float,
             else:
                 steps.append(f"当前图像灰度差 {diff:.1f} ≥ 30，对比度达标")
         if over is not None and over > 0.02:
+            if curved_or_glossy or diag_suspect:
+                advice = "已改低角度+偏振；若仍过曝，再降亮度或加漫射板"
+            else:
+                advice = "降亮度、加漫射板或上偏振"
             warnings.append(
-                f"过曝像素占 {over:.1%}，细节已丢失：降亮度、加漫射板或上偏振，"
-                f"不要靠调低曝光硬压"
+                f"过曝像素占 {over:.1%}，细节已丢失：{advice}，不要靠调低曝光硬压"
             )
         if under is not None and under > 0.10:
             warnings.append(
@@ -158,7 +206,7 @@ def recommend_light(task: str, fov_w: float, fov_h: float,
 
     return LightSpec(
         direction=direction, field_type=field_type, form=form, series=series,
-        angle=("90°" if direction == "高角度" else ("30°" if direction == "低角度" else "")),
+        angle=angle,
         color=color, size_mm=(size_w, size_h), polarization=polarization,
         steps=steps, warnings=warnings,
     )
