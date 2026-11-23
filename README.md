@@ -5,17 +5,19 @@
 
 一句话主张：**让选型从"填表算数"变成"看图说话"——先判断这张图能不能检出，再倒推还缺什么硬件。**
 
-版本：v0.6.5
+版本：v0.6.6
 
 **在线演示**：https://qsianuo.github.io/vision-spec-generator/ （GitHub Pages / `docs/`，光学实验室 3D 静态版，无需后端）
 
 ---
 
-## 面阵光学实验台参考配置（v0.6.5）
+## 面阵光学实验台参考配置（v0.6.6）
 
-光学实验室现可选择 CST、BMT 的公开面阵实验台型号，查看产品尺寸、适用场景、支架与控制器说明，并切换标准立柱、大视野四立柱和便携双支柱的结构示意。LOTS 产品页暂未核验到可用参数，因此只保留来源链接与待核验标识。
+光学实验室现可选择 CST、BMT、LOTS 面阵试验台参考资料，查看公开规格、适用场景与结构说明，并切换标准立柱、大视野四立柱和便携双支柱示意。CST 规格按官方页面录入；BMT 页面的尺寸/材质字段冲突，相关尺寸不作为已确认数据；LOTS 的指定产品页暂未取得可核验参数。
 
 设备清单、来源与模型边界见 [docs/area-array-bench-catalog.md](docs/area-array-bench-catalog.md)。页面中的 3D 结构不是机械尺寸图，不代表真实比例、行程、负载或重复定位精度；采购与装配前应以厂商正式规格书为准。
+数据真源位于 `web/bench-data.js`，本地页面由 `web/lab.html` 加载；`demo_server.py` 提供 `/bench-data.js`。运行 `python scripts/build_docs.py` 会生成 `docs/lab.html` 并复制 `docs/bench-data.js`，`python scripts/build_docs.py --check` 同时校验两份静态产物。
+
 
 ## 1. 它解决什么问题
 

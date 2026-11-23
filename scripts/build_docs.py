@@ -3,7 +3,7 @@
 
 背景：web/ 与 docs/ 是同一套 UI 的两份副本，此前靠手工同步，
 每次改几何都要在两套行号体系里重复改，已经漏过一次（docs 停留在旧几何）。
-这里把两版的固定差异收敛成 5 条确定性替换，其余内容逐字继承。
+这里把两版的固定差异收敛成 4 条确定性替换，其余内容逐字继承。
 
 用法：
   python scripts/build_docs.py           # 重新生成 docs/lab.html
@@ -18,6 +18,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "web" / "lab.html"
 DST = ROOT / "docs" / "lab.html"
+BENCH_SRC = ROOT / "web" / "bench-data.js"
+BENCH_DST = ROOT / "docs" / "bench-data.js"
 
 # (旧文本, 新文本, 说明)。每条必须唯一命中，否则直接失败，避免静默生成错页。
 REPLACEMENTS: list[tuple[str, str, str]] = [
@@ -27,9 +29,9 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
         "标题标注静态版",
     ),
     (
-        '<script src="/vendor/three.min.js"></script>',
-        '<script src="vendor/three.min.js"></script>\n<script src="lab-data.js"></script>',
-        "three 改相对路径并引入本地数据层",
+        '<script src="/vendor/three.min.js"></script>\n<script src="/bench-data.js"></script>',
+        '<script src="vendor/three.min.js"></script>\n<script src="lab-data.js"></script>\n<script src="bench-data.js"></script>',
+        "three 改相对路径并引入两份静态数据层",
     ),
     (
         """async function fetchLab(series) {
@@ -60,27 +62,36 @@ def build(text: str) -> str:
         if hits != 1:
             raise SystemExit(f"[build_docs] 锚点「{desc}」匹配 {hits} 处，期望 1 处，已中止")
         text = text.replace(old, new)
-    leftovers = [p for p in ("/api/lab", "/api/version") if p in text]
+    leftovers = [p for p in ("/api/lab", "/api/version", "/bench-data.js") if p in text]
     if leftovers:
         raise SystemExit(f"[build_docs] 产物仍含动态接口引用：{', '.join(leftovers)}")
     return text
 
 
 def main(argv: list[str]) -> int:
-    if not SRC.exists():
-        raise SystemExit(f"[build_docs] 真源不存在：{SRC}")
+    for source in (SRC, BENCH_SRC):
+        if not source.exists():
+            raise SystemExit(f"[build_docs] 真源不存在：{source}")
     out = build(SRC.read_text(encoding="utf-8"))
+    bench_data = BENCH_SRC.read_text(encoding="utf-8")
 
     if "--check" in argv:
         current = DST.read_text(encoding="utf-8") if DST.exists() else ""
+        current_bench = BENCH_DST.read_text(encoding="utf-8") if BENCH_DST.exists() else ""
+        stale = []
         if current != out:
-            print("[build_docs] docs/lab.html 未同步，请运行 python scripts/build_docs.py")
+            stale.append("docs/lab.html")
+        if current_bench != bench_data:
+            stale.append("docs/bench-data.js")
+        if stale:
+            print("[build_docs] 以下产物未同步，请运行 python scripts/build_docs.py：" + "、".join(stale))
             return 1
-        print("[build_docs] docs/lab.html 已同步")
+        print("[build_docs] docs/lab.html 与 docs/bench-data.js 已同步")
         return 0
 
     DST.write_text(out, encoding="utf-8", newline="\n")
-    print(f"[build_docs] 已生成 {DST.relative_to(ROOT)}（{len(out)} 字符）")
+    BENCH_DST.write_text(bench_data, encoding="utf-8", newline="\n")
+    print(f"[build_docs] 已生成 docs/lab.html（{len(out)} 字符）与 docs/bench-data.js（{len(bench_data)} 字符）")
     return 0
 
 

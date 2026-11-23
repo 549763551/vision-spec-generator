@@ -338,6 +338,13 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(200, f.read(), "image/png")
             else:
                 self._send(404, b'{"ok":false,"error":"sample missing"}')
+        elif path == "/bench-data.js":
+            fp = os.path.join(WEB, "bench-data.js")
+            if os.path.exists(fp):
+                with open(fp, "rb") as f:
+                    self._send(200, f.read(), "application/javascript; charset=utf-8")
+            else:
+                self._send(404, b'{"ok":false,"error":"bench data missing"}')
         elif path.startswith("/vendor/"):
             name = os.path.basename(urllib.parse.unquote(path[8:]))
             fp = os.path.join(WEB, "vendor", name)

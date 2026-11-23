@@ -52,6 +52,16 @@ a{color:inherit;text-decoration:none}
 .side-section+.side-section{border-top:1px solid var(--line); padding-top:15px; margin-top:15px}
 .overline{font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--ink3); margin-bottom:3px}
 .sidebar h2{font-size:13.5px; font-weight:500; color:var(--ink1); margin:0 0 11px}
+.bench-select{width:100%; padding:8px 10px; border:1px solid var(--line2); border-radius:8px; color:var(--ink1); background:var(--surface2); font-size:11.5px}
+.bench-meta{margin-top:9px; padding:10px; border:1px solid var(--line); border-radius:9px; background:var(--surface2)}
+.bench-meta .bench-name{font-size:12px; color:var(--ink1); font-weight:600}
+.bench-meta .bench-dim{font-family:var(--mono); font-size:10.5px; color:var(--accent-hi); margin-top:3px}
+.bench-meta p{font-size:10.5px; line-height:1.65; color:var(--ink3); margin:6px 0 0}
+.bench-meta ul{margin:7px 0 0; padding-left:15px; list-style:disc}
+.bench-meta li{font-size:10px; line-height:1.65; color:var(--ink3); margin:2px 0}
+.bench-meta a{display:inline-block; margin-top:8px; color:var(--accent-hi); font-size:10.5px; border-bottom:1px solid #2fd3c540}
+.bench-status{font-size:9px; margin-left:6px; padding:2px 5px; border-radius:4px; background:#2fd3c51a; color:var(--accent-hi)}
+.bench-status.pending{background:#e8a33d18; color:var(--warn)}
 
 .light-grid{display:grid; grid-template-columns:1fr 1fr; gap:7px}
 .light-card{
@@ -225,13 +235,21 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
   <div class="workspace">
     <aside class="sidebar">
       <section class="side-section">
-        <div class="overline">01 / 换光源</div>
+        <div class="overline">01 / 试验台设备</div>
+        <h2>面阵平台参考配置</h2>
+        <select id="benchSelect" class="bench-select" aria-label="选择面阵相机试验台"></select>
+        <div id="benchMeta" class="bench-meta" aria-live="polite"></div>
+        <div class="note">设备规格来自厂商公开资料；三维模型只呈现结构关系，不代表真实比例、导轨行程、负载或定位精度。</div>
+      </section>
+
+      <section class="side-section">
+        <div class="overline">02 / 换光源</div>
         <h2>光源形态</h2>
         <div class="light-grid" id="lightGrid"></div>
       </section>
 
       <section class="side-section">
-        <div class="overline">02 / 光源控制</div>
+        <div class="overline">03 / 光源控制</div>
         <h2>亮度与色彩</h2>
         <div class="sw-row">
           <span>光源开关</span>
@@ -254,7 +272,7 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
       </section>
 
       <section class="side-section">
-        <div class="overline">03 / 支架安装</div>
+        <div class="overline">04 / 支架安装</div>
         <h2>位置与朝向</h2>
         <div class="control">
           <div class="control-head"><label for="sHeight">光源到工件</label><output id="oHeight">80 mm</output></div>
@@ -276,7 +294,7 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
       </section>
 
       <section class="side-section">
-        <div class="overline">04 / 视图</div>
+        <div class="overline">05 / 视图</div>
         <h2>显示项</h2>
         <label class="check-row"><input id="showBeam" type="checkbox" checked />光路光幕</label>
         <label class="check-row"><input id="showFov" type="checkbox" checked />相机视野框</label>
@@ -343,6 +361,7 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
 </div>
 
 <script src="/vendor/three.min.js"></script>
+<script src="/bench-data.js"></script>
 <script>
 const T = THREE;
 const $ = (id) => document.getElementById(id);
@@ -593,7 +612,85 @@ function buildCamRig() {
    立柱铝型材 + 两个上下滑块 + 两条水平方铝悬臂，相机与光源都刚性夹在悬臂末端。
    立柱固定在机台后方（-Z），不随方位角旋转，避免绕到前方挡住工件。
    尺寸按视野等比示意；光学 WD 仍只用于小窗取景与视场角。 */
-const STAND = { w: 8.6, d: 9.2, colZ: -4.30, colW: 0.86 };
+const STAND = { w: 8.6, d: 9.2, colZ: -4.30, colW: 0.86, frame: 'single' };
+const BENCHES = BenchCatalog.getBenches();
+let activeBench = null;
+
+function renderBenchMeta(bench) {
+  const host = $('benchMeta');
+  host.replaceChildren();
+  const name = document.createElement('div');
+  name.className = 'bench-name';
+  name.textContent = bench.vendor + ' · ' + bench.model;
+  const status = document.createElement('span');
+  status.className = 'bench-status' + (bench.verified ? '' : ' pending');
+  status.textContent = bench.verified ? '规格可核验' : '参数待复核';
+  name.appendChild(status);
+  host.appendChild(name);
+
+  const dim = document.createElement('div');
+  dim.className = 'bench-dim';
+  dim.textContent = bench.dimensions;
+  host.appendChild(dim);
+
+  const usage = document.createElement('p');
+  usage.textContent = bench.usage;
+  host.appendChild(usage);
+
+  const list = document.createElement('ul');
+  bench.features.forEach((item) => {
+    const li = document.createElement('li');
+    li.textContent = item;
+    list.appendChild(li);
+  });
+  host.appendChild(list);
+
+  const note = document.createElement('p');
+  note.textContent = bench.note;
+  host.appendChild(note);
+
+  const link = document.createElement('a');
+  link.href = bench.source;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = '查看厂商资料 ↗';
+  host.appendChild(link);
+}
+
+function applyBench(id, updateUrl = true) {
+  activeBench = BENCHES.find((item) => item.id === id) || BENCHES[0];
+  const visual = activeBench.visual || { w: 8.6, d: 9.2, frame: 'single' };
+  STAND.w = visual.w;
+  STAND.d = visual.d;
+  STAND.frame = visual.frame || 'single';
+  STAND.colZ = -0.60 - STAND.d * 0.40;
+  STAND.colW = STAND.frame === 'portable' ? 0.62 : 0.86;
+  renderBenchMeta(activeBench);
+  $('benchSelect').value = activeBench.id;
+  if (updateUrl) {
+    const next = new URL(location.href);
+    next.searchParams.set('bench', activeBench.id);
+    history.replaceState(null, '', next.pathname + next.search + next.hash);
+  }
+}
+
+function initBenchSelector() {
+  const select = $('benchSelect');
+  BENCHES.forEach((bench) => {
+    const option = document.createElement('option');
+    option.value = bench.id;
+    option.textContent = bench.vendor + ' · ' + bench.model;
+    select.appendChild(option);
+  });
+  const requested = new URLSearchParams(location.search).get('bench');
+  const id = BENCHES.some((bench) => bench.id === requested) ? requested : 'cst-fatb650';
+  applyBench(id, false);
+  select.addEventListener('change', () => {
+    applyBench(select.value);
+    buildBracket();
+    placeMainCam();
+  });
+}
 function boxAt(w, h, d, mat, x, y, z, parent) {
   const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat);
   m.position.set(x, y, z);
@@ -622,36 +719,77 @@ function buildBracket() {
   const colBot = -0.44, colH = colTop - colBot, colY = (colTop + colBot) / 2;
   const CZ = STAND.colZ, CW = STAND.colW;
 
-  // ① 实心底板 + 两条 T 槽导轨 + 四只底脚
+  // ① 底板与 T 槽导轨。比例仅用于结构示意，真实尺寸见左侧厂商规格卡。
+  const frontZ = -0.60 + STAND.d * 0.40;
+  const railZ = frontZ - 0.36;
   boxAt(STAND.w, 0.72, STAND.d, MAT.base, 0, -0.80, -0.60, bracket);
-  for (const z of [3.15, 3.45]) {
-    boxAt(7.0, 0.10, 0.24, MAT.rail, 0, -0.39, z, bracket);
-    boxAt(7.0, 0.012, 0.075, MAT.slot, 0, -0.334, z, bracket);
+  for (const z of [railZ - 0.16, railZ + 0.16]) {
+    boxAt(STAND.w * 0.82, 0.10, 0.22, MAT.rail, 0, -0.39, z, bracket);
+    boxAt(STAND.w * 0.82, 0.012, 0.075, MAT.slot, 0, -0.334, z, bracket);
   }
-  for (const x of [-3.7, 3.7]) for (const z of [-4.75, 3.25])
-    cylAt(0.17, 0.16, MAT.dark, x, -1.20, z, 'y', bracket);
+  for (const x of [-STAND.w * 0.43, STAND.w * 0.43]) {
+    for (const z of [-0.60 - STAND.d * 0.44, -0.60 + STAND.d * 0.44]) {
+      cylAt(0.17, 0.16, MAT.dark, x, -1.20, z, 'y', bracket);
+    }
+  }
 
   // 前面板：小屏 + 指示灯 + 旋钮
-  const fz = 3.83;
-  boxAt(3.0, 0.34, 0.03, MAT.slot, 0, -0.78, fz, bracket);
-  boxAt(0.90, 0.22, 0.02, MAT.lens, 0.75, -0.78, fz + 0.02, bracket);
-  for (let i = 0; i < 3; i++)
-    cylAt(0.055, 0.02, i === 0 ? MAT.led : MAT.knob, -1.10 + i * 0.28, -0.78, fz + 0.03, 'z', bracket);
-  cylAt(0.13, 0.10, MAT.knob, 1.48, -0.78, fz + 0.05, 'z', bracket);
-
-  // ② 立柱：方铝型材，正面双 T 槽 + 一列安装孔 + 顶盖 + 根部法兰
-  boxAt(CW, colH, CW, MAT.rail, 0, colY, CZ, bracket);
-  for (const sx of [-1, 1]) {
-    boxAt(0.075, colH - 0.24, 0.014, MAT.slot, sx * 0.27, colY, CZ + CW / 2 + 0.008, bracket);
-    boxAt(0.014, colH - 0.24, 0.075, MAT.slot, sx * (CW / 2 + 0.008), colY, CZ, bracket);
+  const fz = frontZ + 0.05;
+  boxAt(STAND.w * 0.36, 0.34, 0.03, MAT.slot, 0, -0.78, fz, bracket);
+  boxAt(0.90, 0.22, 0.02, MAT.lens, STAND.w * 0.09, -0.78, fz + 0.02, bracket);
+  for (let i = 0; i < 3; i++) {
+    cylAt(0.055, 0.02, i === 0 ? MAT.led : MAT.knob, -STAND.w * 0.14 + i * 0.28, -0.78, fz + 0.03, 'z', bracket);
   }
-  for (let y = 0.25; y < colTop - 0.35; y += 0.62)
-    cylAt(0.048, 0.024, MAT.slot, 0, y, CZ + CW / 2 + 0.014, 'z', bracket);
-  boxAt(CW + 0.14, 0.10, CW + 0.14, MAT.dark, 0, colTop + 0.05, CZ, bracket);
-  boxAt(1.35, 0.16, 1.35, MAT.dark, 0, colBot + 0.08, CZ, bracket);
+  cylAt(0.13, 0.10, MAT.knob, STAND.w * 0.19, -0.78, fz + 0.05, 'z', bracket);
 
-  // ③ 滑块 + 水平方铝悬臂（两个高度各一套）
+  // ② 立柱结构按平台形态切换：标准后立柱 / 大视野四立柱 / 便携双支柱。
+  if (STAND.frame === 'four-post') {
+    const px = STAND.w * 0.43, pz = STAND.d * 0.40;
+    const frameTop = Math.max(colTop + 1.0, 15);
+    const frameHeight = frameTop - colBot;
+    for (const x of [-px, px]) {
+      for (const z of [-0.60 - pz, -0.60 + pz]) {
+        boxAt(0.30, frameHeight, 0.30, MAT.rail, x, colBot + frameHeight / 2, z, bracket);
+        boxAt(0.44, 0.16, 0.44, MAT.dark, x, colBot + 0.08, z, bracket);
+        boxAt(0.075, frameHeight - 0.30, 0.014, MAT.slot, x, colBot + frameHeight / 2, z + 0.16, bracket);
+      }
+    }
+    // 四边顶部连接梁，表现 CST 大视野四底座/四连接杆框架
+    boxAt(STAND.w * 0.90, 0.28, 0.30, MAT.rail, 0, frameTop, -0.60 - pz, bracket);
+    boxAt(STAND.w * 0.90, 0.28, 0.30, MAT.rail, 0, frameTop, -0.60 + pz, bracket);
+    boxAt(0.30, 0.28, STAND.d * 0.80, MAT.rail, -px, frameTop, -0.60, bracket);
+    boxAt(0.30, 0.28, STAND.d * 0.80, MAT.rail, px, frameTop, -0.60, bracket);
+  } else if (STAND.frame === 'portable') {
+    for (const x of [-STAND.w * 0.34, STAND.w * 0.34]) {
+      boxAt(0.22, colH, 0.22, MAT.part, x, colY, CZ, bracket);
+      boxAt(0.42, 0.16, 0.42, MAT.dark, x, colBot + 0.08, CZ, bracket);
+    }
+  } else {
+    boxAt(CW, colH, CW, MAT.rail, 0, colY, CZ, bracket);
+    for (const sx of [-1, 1]) {
+      boxAt(0.075, colH - 0.24, 0.014, MAT.slot, sx * 0.27, colY, CZ + CW / 2 + 0.008, bracket);
+      boxAt(0.014, colH - 0.24, 0.075, MAT.slot, sx * (CW / 2 + 0.008), colY, CZ, bracket);
+    }
+    for (let y = 0.25; y < colTop - 0.35; y += 0.62)
+      cylAt(0.048, 0.024, MAT.slot, 0, y, CZ + CW / 2 + 0.014, 'z', bracket);
+    boxAt(CW + 0.14, 0.10, CW + 0.14, MAT.dark, 0, colTop + 0.05, CZ, bracket);
+    boxAt(1.35, 0.16, 1.35, MAT.dark, 0, colBot + 0.08, CZ, bracket);
+  }
+
+  // ③ 滑块 + 水平支臂；大视野和便携平台由两侧立柱共同承托。
   function slider(y, armEndZ, armW, armH, dropLen) {
+    if (STAND.frame === 'four-post' || STAND.frame === 'portable') {
+      const span = STAND.frame === 'four-post' ? STAND.w * 0.76 : STAND.w * 0.62;
+      boxAt(span, 0.24, 0.30, MAT.rail, 0, y, CZ, bracket);
+      boxAt(0.68, 0.58, 0.38, MAT.dark, 0, y, CZ + 0.22, bracket);
+      const z0 = CZ + 0.30, z1 = armEndZ;
+      const len = Math.max(z1 - z0, 0.2), zm = (z0 + z1) / 2;
+      boxAt(armW, armH, len, MAT.rail, 0, y, zm, bracket);
+      boxAt(armW * 0.42, 0.012, Math.max(len - 0.08, 0.08), MAT.slot, 0, y + armH / 2 + 0.006, zm, bracket);
+      if (dropLen) boxAt(armW * 0.9, dropLen, armW * 0.9, MAT.rail, 0, y - dropLen / 2, z1 + armW * 0.45, bracket);
+      return;
+    }
+
     boxAt(CW + 0.32, 0.84, CW + 0.32, MAT.dark, 0, y, CZ, bracket);
     boxAt(CW + 0.36, 0.14, CW + 0.36, MAT.rail, 0, y + 0.35, CZ, bracket);
     cylAt(0.145, 0.20, MAT.knob, (CW + 0.32) / 2 + 0.10, y, CZ, 'x', bracket);
@@ -660,7 +798,6 @@ function buildBracket() {
     const len = Math.max(z1 - z0, 0.2), zm = (z0 + z1) / 2;
     boxAt(armW, armH, len, MAT.rail, 0, y, zm, bracket);
     boxAt(armW * 0.42, 0.012, len - 0.08, MAT.slot, 0, y + armH / 2 + 0.006, zm, bracket);
-    // 悬臂末端的下挂立柱：光源/相机挂在臂端下方，不是吊在臂端上方
     if (dropLen) boxAt(armW * 0.9, dropLen, armW * 0.9, MAT.rail, 0, y - dropLen / 2, z1 + armW * 0.45, bracket);
   }
 
@@ -1379,7 +1516,7 @@ function placeMainCam() {
   if (S.view === 'rig') {
     // 整机：底板到立柱顶盖全部入画。相机本体在 WD 高处（160 mm → 16 单位），
     // 旧取景只框到光源（y≈10），相机与立柱上半截被裁掉，才显得光源是「吊」着的。
-    top = colTop + 1.4;
+    top = Math.max(colTop, STAND.frame === 'four-post' ? 15 : STAND.frame === 'portable' ? 6 : 0) + 1.4;
     bottom = -1.6;
     halfW = STAND.w * 0.52;
     el = 0.52;
@@ -1606,6 +1743,7 @@ async function loadLight(series, keepMount) {
 }
 
 async function boot() {
+  initBenchSelector();
   buildCamRig();
   const d = await fetchLab(S.series);
   if (!d || !d.ok) { $('vmTag').textContent = '接口未就绪'; return; }
