@@ -129,6 +129,8 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
 }
 .cam-tag b{color:var(--ink2); font-weight:500}
 .cam-tag i{display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--accent); box-shadow:0 0 7px var(--accent)}
+.cam-tag.live i{background:var(--warn); box-shadow:0 0 7px var(--warn)}
+#scene.orbitable{cursor:grab}
 
 /* ── 右下角：相机观测小窗（海康 VM 风格） ───────────────── */
 .vm{
@@ -260,13 +262,16 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
         <label class="check-row"><input id="showBeam" type="checkbox" checked />光路光幕</label>
         <label class="check-row"><input id="showFov" type="checkbox" checked />相机视野框</label>
         <label class="check-row"><input id="showHard" type="checkbox" checked />支架与灯具实体</label>
+        <label class="check-row"><input id="showOrbit" type="checkbox" />360° 环视机位</label>
         <div class="control">
           <div class="control-head"><label for="sExpo">相机曝光（仅小窗）</label><output id="oExpo">×1.0</output></div>
           <input id="sExpo" type="range" min="30" max="300" step="5" value="100" />
         </div>
+        <button class="btn-reset" id="btnView">复位观察机位</button>
         <div class="note">
-          主视图机位<b>锁在面阵相机轴向高位</b>，不能旋转；右下角小窗是<b>相机实拍画面</b>，
-          曝光独立可调。判断打光对不对，以小窗的明暗与阴影为准。
+          主视图默认<b>锁在面阵相机轴向高位</b>；开启 360° 环视后可拖拽整圈旋转、滚轮缩放、双击复位。
+          右下角小窗始终是<b>相机实拍画面</b>，不随主视图旋转，曝光独立可调。
+          判断打光对不对，仍以小窗的明暗与阴影为准。
         </div>
       </section>
     </aside>
@@ -306,7 +311,7 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
         </div>
       </div>
 
-      <div class="cam-tag"><i></i>机位 M-01 · <b>面阵相机轴向高位 · 锁定</b></div>
+      <div class="cam-tag" id="camTag"><i></i>机位 M-01 · <b id="camTagTxt">面阵相机轴向高位 · 锁定</b></div>
     </main>
   </div>
 </div>
@@ -329,7 +334,7 @@ const S = {
   wd: clamp(parseFloat(qs.get('wd')) || 160, 80, 400),
   on: true, bright: 75, tint: 'white', cct: 5000,
   h: 80, tilt: 78, azim: 0,
-  exposure: 1.0,
+  exposure: 1.0, orbit: false,
   beam: true, fovBox: true, hardware: true,
 };
 
@@ -353,7 +358,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = T.PCFShadowMap;
 renderer.toneMapping = T.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = 1.12;
 renderer.setClearColor(0x05080a, 1);
 
 const scene = new T.Scene();
@@ -367,7 +372,7 @@ scene.add(new T.AmbientLight(0x8fb6c8, 0.16));
 
 const composer = new T.EffectComposer(renderer);
 composer.addPass(new T.RenderPass(scene, mainCam));
-const bloom = new T.UnrealBloomPass(new T.Vector2(1, 1), 0.42, 0.8, 0.86);
+const bloom = new T.UnrealBloomPass(new T.Vector2(1, 1), 0.55, 0.8, 0.82);
 composer.addPass(bloom);
 composer.addPass(new T.OutputPass());
 
@@ -563,18 +568,20 @@ const SLAB_FS = `
   varying float vT; varying vec3 vN; varying vec3 vV; varying vec3 vP; varying vec3 vNL;
   uniform vec3 uColor; uniform float uAlpha;
   void main(){
-    float ex = smoothstep(0.5, 0.22, abs(vP.x));
-    float ez = smoothstep(0.5, 0.22, abs(vP.z));
+    float ex = smoothstep(0.5, 0.18, abs(vP.x));
+    float ez = smoothstep(0.5, 0.18, abs(vP.z));
     // 四个侧面的 |x| / |z| 恒为 0.5，只靠 ex*ez 会把侧面 alpha 算成 0 → 光幕整个消失。
-    // 用模型空间法线区分：侧面不参与水平淡出，水平面（底面）才做边缘收边。
-    float side = 1.0 - abs(vNL.y);
-    float hfade = mix(ex * ez, 1.0, side);
-    float axial = smoothstep(0.0, 0.08, vT) * (0.55 + 0.65 * (1.0 - vT));
+    // 每个侧面改用「垂直于该面」的那一轴的淡出（±x 面沿 z 展开用 ez，±z 面用 ex），
+    // 四条竖边各自淡出，才不会出现方碗轮廓。
+    float lateral = ex * ez;
+    if (abs(vNL.x) > 0.5) lateral = ez;
+    else if (abs(vNL.z) > 0.5) lateral = ex;
+    float axial = smoothstep(0.0, 0.30, vT) * (0.55 + 0.65 * (1.0 - vT));
     // 与圆柱光幕同一套体光逻辑：正对视线几乎透明，掠射边缘才聚出亮度。
     // 缺这一项时板状光幕正对相机整片按满 alpha 叠加，会变成一堵白墙。
     float fres = 1.0 - abs(dot(normalize(vN), normalize(vV)));
     float body = 0.20 + 0.85 * fres;
-    float a = hfade * axial * body * uAlpha;
+    float a = lateral * axial * body * uAlpha;
     if (a < 0.0015) discard;
     gl_FragColor = vec4(uColor, a);
   }
@@ -726,7 +733,7 @@ function buildLightModel(geo) {
       addEmitter(p, { inward, half: 0.30 });
       if (i % 2 === 0) addSpot(p, { inward, half: 0.42, shadow: i === 0 || i === 6 });
     }
-    volSpec = { kind: 'curtain', rTop: R, alpha: 0.22 };
+    volSpec = { kind: 'curtain', rTop: R, alpha: 0.30 };
 
   } else if (shape === 'bars') {
     const B = clamp(fw * 0.5 + 10, 18, 40) / U;
@@ -745,7 +752,7 @@ function buildLightModel(geo) {
         if (k % 2 === 0) addSpot(p, { inward, half: 0.34, shadow: k === 2 });
       }
     }
-    volSpec = { kind: 'slab', w: (B + 0.14) * 2, d: L, alpha: 0.34 };
+    volSpec = { kind: 'slab', w: (B + 0.14) * 2, d: L, alpha: 0.40 };
 
   } else if (shape === 'panel') {
     const PW = clamp(fw + 26, 40, 100) / U;
@@ -774,7 +781,7 @@ function buildLightModel(geo) {
     dl.shadow.camera.near = 0.1; dl.shadow.camera.far = 40;
     dl.shadow.bias = -0.0002; dl.shadow.normalBias = 0.03; dl.shadow.radius = 3;
     dirLight = dl;
-    volSpec = { kind: 'slab', w: PW, d: PD, alpha: 0.26 };
+    volSpec = { kind: 'slab', w: PW, d: PD, alpha: 0.32 };
 
   } else if (shape === 'coax') {
     lightDim = { r: 0.34 };
@@ -798,7 +805,7 @@ function buildLightModel(geo) {
     const tg = new T.Object3D(); tg.position.set(0, -1, 0);
     lightGroup.add(dl); lightGroup.add(tg); dl.target = tg;
     dirLight = dl;
-    volSpec = { kind: 'curtain', rTop: 0.16, alpha: 0.2 };
+    volSpec = { kind: 'curtain', rTop: 0.16, alpha: 0.26 };
 
   } else if (shape === 'dome') {
     const R = clamp(fw * 0.8 + 14, 26, 52) / U;
@@ -818,12 +825,12 @@ function buildLightModel(geo) {
         const p = new T.Vector3(R * Math.cos(phi) * Math.cos(a), R * Math.sin(phi), R * Math.cos(phi) * Math.sin(a));
         const dir0 = new T.Vector3(0, -R * 0.75, 0).sub(p).normalize();
         addEmitter(p, { dir0, half: 0.42 });
-        if (i % 2 === 0) addSpot(p, { dir0, half: 0.95, w: 0.4 });
+        if (i % 2 === 0) addSpot(p, { dir0, half: 0.95, w: 0.30 });
       }
     }
     const h = new T.HemisphereLight(0xffffff, 0x0a0d0f, 0);
     lightGroup.add(h); hemi = h;
-    volSpec = { kind: 'curtain', rTop: R * 0.99, alpha: 0.10 };
+    volSpec = { kind: 'curtain', rTop: R * 0.99, alpha: 0.17 };
 
   } else if (shape === 'line') {
     const L = clamp(fw * 1.4 + 22, 44, 110) / U;
@@ -842,7 +849,7 @@ function buildLightModel(geo) {
       addEmitter(p, { inward, half: 0.24 });
       if (k % 2 === 0) addSpot(p, { inward, half: 0.32, shadow: k === 3 });
     }
-    volSpec = { kind: 'slab', w: L, d: 0.5, alpha: 0.34 };
+    volSpec = { kind: 'slab', w: L, d: 0.5, alpha: 0.40 };
 
   } else { // tunnel
     const R = clamp(fw * 0.75 + 16, 26, 50) / U;
@@ -867,10 +874,10 @@ function buildLightModel(geo) {
         const p = new T.Vector3(px, py, pz);
         const dir0 = new T.Vector3(px * 0.5, -R * 0.7, -pz * 0.18).normalize();
         addEmitter(p, { dir0, half: 0.38, w: 0.9 });
-        if (i < 2) addSpot(p, { dir0, half: 0.7, w: 0.5, shadow: k === 1 && i === 0 });
+        if (i < 2) addSpot(p, { dir0, half: 0.7, w: 0.42, shadow: k === 1 && i === 0 });
       }
     }
-    volSpec = { kind: 'curtain', rTop: R * 0.94, alpha: 0.12 };
+    volSpec = { kind: 'curtain', rTop: R * 0.94, alpha: 0.19 };
   }
 
   lightGroup.add(g);
@@ -916,11 +923,13 @@ function refreshGeometry() {
     u.uH.value = H;
     if (volSpec.kind === 'slab') {
       // 条光/面光/线光在空气里没有清晰边界，画成从灯具垂到台面的柱体就成了白墙。
-      // 只保留贴台面的薄雾层（≤16 mm），光"落"在工件上，不遮挡视线。
-      const Hs = Math.min(H * 0.42, 1.6);
+      // 只保留贴台面的薄雾层，光"落"在工件上，不遮挡视线。
+      // uH 必须用薄层自身高度：若传整灯高度，vT 会整段落在 shader 饱和区，
+      // 顶边不淡出，薄雾又变回一个方碗。
+      const Hs = Math.min(H * 0.42, 2.3);
       const geo = new T.BoxGeometry(volSpec.w, Hs, volSpec.d);
-      geo.translate(0, -H + Hs / 2, 0);
-      u.uH.value = H;
+      u.uH.value = Hs;
+      v.mesh.position.y = -(H - Hs / 2);
       v.mesh.geometry.dispose();
       v.mesh.geometry = geo;
       u.uW.value = volSpec.w;
@@ -931,6 +940,8 @@ function refreshGeometry() {
       rBot = clamp(Math.abs(rBot), 0.02, volSpec.rTop * 1.6);
       const geo = new T.CylinderGeometry(volSpec.rTop, rBot, H, 56, 1, true);
       geo.translate(0, -H / 2, 0);
+      u.uH.value = H;
+      v.mesh.position.y = 0;
       v.mesh.geometry.dispose();
       v.mesh.geometry = geo;
     }
@@ -950,18 +961,18 @@ function updatePower() {
   const useCol = col.clone().lerp(new T.Color(1, 1, 1), 0.15);
   for (const s of spots) {
     s.light.color.copy(useCol);
-    s.light.intensity = b * 118 * s.w;
+    s.light.intensity = b * 155 * s.w;
     s.light.visible = S.on;
   }
   if (dirLight) {
     dirLight.color.copy(useCol);
-    dirLight.intensity = b * 0.72;
+    dirLight.intensity = b * 0.95;
     dirLight.visible = S.on;
   }
   if (hemi) {
     hemi.color.copy(useCol);
     hemi.groundColor.setHex(0x0a0d0f);
-    hemi.intensity = b * 0.7;
+    hemi.intensity = b * 0.58;
     hemi.visible = S.on;
   }
   for (const m of emissives) {
@@ -1081,7 +1092,8 @@ function syncVMHead() {
   }
 }
 
-/* ── 主视图机位：锁死，不跟随鼠标 ─────────────────────────── */
+/* ── 主视图机位：默认锁在相机轴向高位，可切换 360° 环视 ───── */
+const CAM = { az: 0, el: 0.82, zoom: 1, dist: 20, look: new T.Vector3() };
 function placeMainCam() {
   const yL = lightGeo && lightGeo.shape === 'coax' ? lensFront : S.h / U;
   const top = Math.max(yL + 2.2, 5);
@@ -1089,11 +1101,33 @@ function placeMainCam() {
   const halfSpan = (top - bottom) / 2;
   const rLight = lightDim ? Math.min(lightDim.r, halfSpan * 1.1) : 1;
   const radius = Math.sqrt(halfSpan * halfSpan + rLight * rLight) * 1.02;
-  const dist = radius / Math.sin(mainCam.fov * D2R / 2) * 1.04;
-  const look = new T.Vector3(0, (top + bottom) / 2 - 0.3, 0);
-  const el = 0.82;
-  mainCam.position.set(0, look.y + dist * Math.sin(el), dist * Math.cos(el));
-  mainCam.lookAt(look);
+  CAM.dist = radius / Math.sin(mainCam.fov * D2R / 2) * 1.04;
+  CAM.look.set(0, (top + bottom) / 2 - 0.3, 0);
+  applyCam();
+}
+function applyCam() {
+  const d = CAM.dist * CAM.zoom;
+  const ce = Math.cos(CAM.el), se = Math.sin(CAM.el);
+  // az 不做限位，水平可以整圈旋转；el 限制在台面上方，避免翻到底下看不到工件
+  mainCam.position.set(
+    CAM.look.x + d * ce * Math.sin(CAM.az),
+    CAM.look.y + d * se,
+    CAM.look.z + d * ce * Math.cos(CAM.az)
+  );
+  mainCam.lookAt(CAM.look);
+  mainCam.updateMatrixWorld();
+  updateViewTag();
+}
+function resetView() {
+  CAM.az = 0; CAM.el = 0.82; CAM.zoom = 1;
+  applyCam();
+}
+function updateViewTag() {
+  const deg = ((Math.round(CAM.az * 180 / Math.PI) % 360) + 360) % 360;
+  $('camTagTxt').innerHTML = S.orbit
+    ? `360° 环视 · 方位 ${deg}° · 俯仰 ${Math.round(CAM.el * 180 / Math.PI)}°`
+    : '面阵相机轴向高位 · 锁定';
+  $('camTag').classList.toggle('live', S.orbit);
 }
 
 /* ── 小窗渲染：单画布 + 剪裁视口 ──────────────────────────── */
@@ -1183,10 +1217,39 @@ $('backBtn').addEventListener('click', (e) => {
 });
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
-  mainCam.fov = clamp(mainCam.fov * Math.exp(e.deltaY * 0.0008), 20, 60);
-  mainCam.updateProjectionMatrix();
-  placeMainCam();
+  CAM.zoom = clamp(CAM.zoom * Math.exp(e.deltaY * 0.0009), 0.55, 2.4);
+  applyCam();
 }, { passive: false });
+
+/* 环视只在开关打开时接管拖拽；默认仍是锁定的基准机位 */
+let spinning = false, lastX = 0, lastY = 0;
+canvas.addEventListener('pointerdown', (e) => {
+  if (!S.orbit) return;
+  spinning = true; lastX = e.clientX; lastY = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+  canvas.style.cursor = 'grabbing';
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (!spinning || !S.orbit) return;
+  CAM.az -= (e.clientX - lastX) * 0.0065;
+  CAM.el = clamp(CAM.el + (e.clientY - lastY) * 0.0045, 0.10, 1.48);
+  lastX = e.clientX; lastY = e.clientY;
+  applyCam();
+});
+const endSpin = () => { spinning = false; canvas.style.cursor = S.orbit ? 'grab' : 'default'; };
+canvas.addEventListener('pointerup', endSpin);
+canvas.addEventListener('pointercancel', endSpin);
+canvas.addEventListener('dblclick', () => { if (S.orbit) resetView(); });
+
+$('showOrbit').addEventListener('change', (e) => {
+  S.orbit = e.target.checked;
+  canvas.classList.toggle('orbitable', S.orbit);
+  canvas.style.cursor = S.orbit ? 'grab' : 'default';
+  if (!S.orbit) resetView();           // 关掉环视即回到基准机位
+  else updateViewTag();
+});
+$('btnView').addEventListener('click', resetView);
+
 addEventListener('resize', () => { placeMainCam(); syncVMHead(); });
 
 /* ── 启动 ─────────────────────────────────────────────────── */
