@@ -7,21 +7,29 @@
   --color-surface-2: #181c1b;
   --color-line: #ffffff12;
   --color-line-2: #ffffff21;
-  --color-ink-1: #eff1ef;
-  --color-ink-2: #c2c8c4;
-  --color-ink-3: #838d88;
+  --color-ink-1: #f2f4f2;
+  --color-ink-2: #c8ceca;
+  --color-ink-3: #939d98;
   --color-accent: #2fd3c5;
+  --color-accent-hi: #54e0d3;
   --color-accent-soft: #2fd3c51f;
   --color-ok: #5be49b;
   --color-warn: #e8a33d;
   --color-fail: #ff6b5a;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Microsoft YaHei", sans-serif;
-  --font-mono: Consolas, "SF Mono", ui-monospace, monospace;
+  /* 苹方优先；Windows 无苹方时回退雅黑，避免落到衬线默认字体 */
+  --font-sans: "PingFang SC", "苹方简体", "PingFang TC", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  --font-mono: "SF Mono", Consolas, ui-monospace, monospace;
 
   --radius-panel: 14px;
   --radius-ctl: 8px;
+
+  /* 全站统一节奏：只有快/中两档，避免各处手写不同的缓动 */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-snappy: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 140ms;
+  --dur-mid: 260ms;
 }
 
 @layer base {
@@ -33,13 +41,14 @@
     font-family: var(--font-sans);
     font-size: 13px;
     line-height: 1.6;
+    letter-spacing: 0.01em;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
   h1, h2, h3, h4 {
     color: var(--color-ink-1);
     font-weight: 500;
-    letter-spacing: -0.012em;
+    letter-spacing: 0;
     margin: 0;
   }
   a { color: inherit; text-decoration: none; }
@@ -69,6 +78,16 @@
   }
 }
 
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes soft-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @layer utilities {
   .tnum { font-variant-numeric: tabular-nums; }
   .top-sheen {
@@ -78,4 +97,18 @@
       transparent 70%
     );
   }
+
+  /* 结果区/面板入场：位移很小、时长很短，不做花哨弹跳 */
+  .rise-in { animation: rise var(--dur-mid) var(--ease-out) both; }
+  .soft-in { animation: soft-in var(--dur-mid) var(--ease-out) both; }
+
+  /* 交互反馈基线：所有可点元素共用同一条缓动与时长 */
+  .interactive {
+    transition: color var(--dur-fast) var(--ease-snappy),
+      background-color var(--dur-fast) var(--ease-snappy),
+      border-color var(--dur-fast) var(--ease-snappy),
+      transform var(--dur-fast) var(--ease-snappy),
+      box-shadow var(--dur-fast) var(--ease-snappy);
+  }
+  .pressable:active { transform: translateY(1px) scale(0.995); }
 }

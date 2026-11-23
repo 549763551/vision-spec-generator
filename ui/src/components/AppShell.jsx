@@ -34,8 +34,10 @@ export default function AppShell({ children }) {
                 key={l.to}
                 to={l.to}
                 className={({ isActive }) =>
-                  `rounded-[7px] px-2.5 py-1.5 text-[12.5px] transition-colors ${
-                    isActive ? 'bg-surface-2 text-ink-1' : 'text-ink-3 hover:text-ink-1'
+                  `interactive relative rounded-[7px] px-2.5 py-1.5 text-[12.5px] ${
+                    isActive
+                      ? 'bg-surface-2 text-ink-1 after:absolute after:inset-x-2.5 after:-bottom-[3px] after:h-[2px] after:rounded-full after:bg-accent'
+                      : 'text-ink-3 hover:bg-surface-2/60 hover:text-ink-1'
                   }`
                 }
               >
@@ -44,7 +46,7 @@ export default function AppShell({ children }) {
             ))}
             <a
               href="/exploded"
-              className="group flex items-center gap-1 rounded-[7px] px-2.5 py-1.5 text-[12.5px] text-ink-3 transition-colors hover:text-ink-1"
+              className="interactive group flex items-center gap-1 rounded-[7px] px-2.5 py-1.5 text-[12.5px] text-ink-3 hover:bg-surface-2/60 hover:text-ink-1"
             >
               3D 拆解
               <ArrowUpRight size={12} className="opacity-50 transition-opacity group-hover:opacity-100" />

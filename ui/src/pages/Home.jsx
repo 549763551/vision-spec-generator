@@ -63,14 +63,14 @@ export default function Home() {
         >
           <Link
             to="/studio"
-            className="inline-flex h-11 items-center gap-2 rounded-[9px] bg-accent px-5 text-[13.5px] font-medium text-[#08221f] transition hover:brightness-108"
+            className="group interactive pressable inline-flex h-11 items-center gap-2 rounded-[9px] bg-accent px-5 text-[13.5px] font-medium text-[#08221f] hover:bg-accent-hi hover:shadow-[0_2px_14px_-4px_#2fd3c580]"
           >
             进入工作台
-            <ArrowRight size={15} strokeWidth={2.1} />
+            <ArrowRight size={15} strokeWidth={2.1} className="transition-transform duration-150 group-hover:translate-x-0.5" />
           </Link>
           <a
             href="/exploded"
-            className="inline-flex h-11 items-center gap-2 rounded-[9px] border border-line px-5 text-[13.5px] text-ink-2 transition hover:border-line-2 hover:bg-surface-2 hover:text-ink-1"
+            className="interactive pressable inline-flex h-11 items-center gap-2 rounded-[9px] border border-line bg-surface-2/40 px-5 text-[13.5px] text-ink-2 hover:border-line-2 hover:bg-surface-2 hover:text-ink-1"
           >
             看 3D 拆解
           </a>
@@ -183,7 +183,7 @@ function Entry({ to, href, eyebrow, title, desc, tags }) {
   return (
     <Cmp
       {...props}
-      className="group relative flex flex-col rounded-[14px] border border-line bg-surface p-6 transition-colors hover:border-line-2 hover:bg-surface-2"
+      className="group interactive relative flex flex-col rounded-[14px] border border-line bg-surface p-6 hover:-translate-y-0.5 hover:border-accent/30 hover:bg-surface-2 hover:shadow-[0_10px_30px_-18px_#000]"
     >
       <span className="text-[10.5px] uppercase tracking-[0.1em] text-ink-3">{eyebrow}</span>
       <h3 className="mt-2 flex items-center gap-2 text-[17px]">

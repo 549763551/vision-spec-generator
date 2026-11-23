@@ -3,12 +3,12 @@ import { Loader2, AlertTriangle, Inbox } from 'lucide-react'
 /* ── 按钮：三个变体，全局只有这三种 ───────────────────────────── */
 export function Button({ variant = 'outline', size = 'md', busy, icon: Icon, children, className = '', ...rest }) {
   const base =
-    'inline-flex items-center justify-center gap-2 rounded-[8px] font-medium ' +
-    'transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-55 select-none'
+    'interactive pressable inline-flex items-center justify-center gap-2 rounded-[8px] font-medium ' +
+    'disabled:cursor-not-allowed disabled:opacity-55 disabled:pointer-events-none select-none'
   const sizes = { sm: 'h-8 px-3 text-[12px]', md: 'h-9 px-4 text-[13px]', lg: 'h-11 px-5 text-[13.5px]' }
   const variants = {
-    primary: 'bg-accent text-[#08221f] hover:brightness-108 active:brightness-95',
-    outline: 'border border-line text-ink-2 hover:bg-surface-2 hover:border-line-2 hover:text-ink-1',
+    primary: 'bg-accent text-[#08221f] hover:bg-accent-hi hover:shadow-[0_2px_14px_-4px_#2fd3c580]',
+    outline: 'border border-line bg-surface-2/40 text-ink-2 hover:bg-surface-2 hover:border-line-2 hover:text-ink-1',
     ghost: 'text-ink-3 hover:text-ink-1 hover:bg-surface-2',
   }
   return (
@@ -31,7 +31,7 @@ export function Panel({ title, sub, actions, children, className = '', bodyClass
         <header className="flex items-center gap-3 border-b border-line px-4 py-3">
           <div className="min-w-0 flex-1">
             {title && (
-              <h2 className="text-[10.5px] font-medium uppercase tracking-[0.11em] text-ink-3">{title}</h2>
+              <h2 className="text-[11px] font-medium tracking-[0.06em] text-ink-2">{title}</h2>
             )}
             {sub && <p className="mt-1 truncate text-[11.5px] text-ink-3">{sub}</p>}
           </div>
@@ -57,8 +57,9 @@ export function Field({ label, hint, htmlFor, children }) {
 }
 
 export const inputCls =
-  'h-9 w-full rounded-[8px] border border-line bg-surface-2 px-2.5 text-[13px] text-ink-1 tnum ' +
-  'transition-colors duration-150 hover:border-line-2 focus:border-accent focus:outline-none'
+  'interactive h-9 w-full rounded-[8px] border border-line bg-surface-2 px-2.5 text-[13px] text-ink-1 tnum ' +
+  'placeholder:text-ink-3/60 hover:border-line-2 focus:border-accent focus:outline-none ' +
+  'focus:shadow-[0_0_0_3px_#2fd3c51c]'
 
 /* ── 数字卡：值用等宽数字，避免切换时抖动 ─────────────────────── */
 export function Stat({ label, value, sub, tone = 'default', className = '' }) {
@@ -70,8 +71,8 @@ export function Stat({ label, value, sub, tone = 'default', className = '' }) {
     fail: 'text-fail',
   }[tone]
   return (
-    <div className={`rounded-[10px] border border-line bg-surface px-3.5 py-3 ${className}`}>
-      <div className="text-[10.5px] uppercase tracking-[0.08em] text-ink-3">{label}</div>
+    <div className={`interactive rounded-[10px] border border-line bg-surface px-3.5 py-3 hover:border-line-2 ${className}`}>
+      <div className="text-[10.5px] tracking-[0.06em] text-ink-3">{label}</div>
       <div className={`mt-1.5 text-[19px] font-medium leading-tight tracking-[-0.01em] tnum ${toneCls}`}>
         {value}
       </div>
