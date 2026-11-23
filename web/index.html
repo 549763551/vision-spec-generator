@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>机器视觉成像方案生成器 · 演示</title>
+<style>
+/* finesse · register=product · A=mono+teal · B=400/500 · C=split-shell
+ * D=css-only · E=instrument-graphite · SOUL=6 SPECTACLE=2 DENSITY=7 */
+:root{
+  --page:#171716; --bg:#212120; --panel-2:#2a2a29;
+  --border:rgba(255,255,255,.07); --border-2:rgba(255,255,255,.13);
+  --ink-1:#efefee; --ink-2:#cbcbc8; --ink-3:#9d9d99;
+  --accent:#2FD3C5; --accent-soft:rgba(47,211,197,.12); --on-accent:#08221f;
+  --ok:#5BE49B; --warn:#E8A33D; --fail:#FF6B5A;
+  --r:12px; --r-sm:9px;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:clip}
+body{
+  background:var(--page); color:var(--ink-2);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:13px; line-height:1.55; height:100vh; overflow:hidden;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+.app{display:flex;height:100vh}
+
+aside{
+  width:376px; flex:0 0 376px; background:var(--page);
+  border-right:1px solid var(--border); padding:22px 20px 28px;
+  overflow-y:auto; scrollbar-width:thin; scrollbar-color:#3a3a38 transparent;
+}
+aside::-webkit-scrollbar{width:9px}
+aside::-webkit-scrollbar-thumb{background:#333332;border-radius:9px;border:3px solid var(--page)}
+
+h1{font-size:15px;font-weight:500;color:var(--ink-1);letter-spacing:-.01em}
+.ver{font-size:11px;color:var(--ink-3);margin-top:3px;letter-spacing:.02em;
+  font-variant-numeric:tabular-nums}
+
+.label{
+  font-size:10.5px; font-weight:500; color:var(--ink-3);
+  letter-spacing:.09em; text-transform:uppercase;
+  margin:22px 0 9px; padding-bottom:0;
+}
+.label:first-of-type{margin-top:18px}
+
+.presets{display:flex;flex-direction:column;gap:6px}
+.preset{
+  background:transparent; border:1px solid var(--border); border-radius:var(--r-sm);
+  padding:10px 12px; cursor:pointer; text-align:left; color:var(--ink-2);
+  font-size:12.5px; font-family:inherit; line-height:1.45;
+  transition:background .15s var(--ease), border-color .15s var(--ease);
+}
+.preset:hover{background:var(--bg); border-color:var(--border-2)}
+.preset:active{background:var(--panel-2)}
+.preset:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.preset b{display:block;font-size:12.5px;font-weight:500;color:var(--ink-1);margin-bottom:2px}
+.preset span{font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+
+.drop{
+  border:1px dashed rgba(255,255,255,.11); border-radius:var(--r);
+  padding:18px 14px; text-align:center; cursor:pointer; margin-top:2px;
+  transition:border-color .15s var(--ease), background .15s var(--ease);
+  background:rgba(255,255,255,.012);
+}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop .ic{font-size:11.5px;color:var(--ink-3);line-height:1.65}
+.drop .thumb{max-width:100%;max-height:84px;border-radius:6px;margin-top:10px;display:block;margin-left:auto;margin-right:auto}
+.drop.has{border-style:solid;border-color:rgba(47,211,197,.35);background:rgba(47,211,197,.05)}
+
+.row{display:flex;gap:8px;margin-bottom:8px}
+.field{flex:1;min-width:0}
+.field label{display:block;font-size:10.5px;color:var(--ink-3);
+  margin-bottom:5px;letter-spacing:.03em}
+input,select{
+  width:100%; background:var(--panel-2); border:1px solid var(--border);
+  border-radius:var(--r-sm); padding:8px 10px; color:var(--ink-1);
+  font-size:13px; font-family:inherit; font-variant-numeric:tabular-nums;
+  transition:border-color .15s var(--ease), background .15s var(--ease);
+}
+input:hover,select:hover{border-color:var(--border-2)}
+input:focus,select:focus{outline:none;border-color:var(--accent);background:#252524}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#8a8a86 50%),linear-gradient(135deg,#8a8a86 50%,transparent 50%);
+  background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:30px}
+.chk{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-2);
+  cursor:pointer;margin:10px 0;user-select:none}
+.chk input{width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex:0 0 14px}
+
+#run{
+  width:100%; margin-top:18px; padding:11px 14px; border:1px solid transparent;
+  border-radius:var(--r-sm); background:var(--accent); color:var(--on-accent);
+  font-size:13px; font-weight:500; cursor:pointer; font-family:inherit;
+  letter-spacing:.01em; transition:filter .15s var(--ease), transform .06s var(--ease);
+}
+#run:hover{filter:brightness(1.08)}
+#run:active{transform:translateY(.5px)}
+#run:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#run:disabled{background:var(--panel-2);color:var(--ink-3);cursor:wait;filter:none;border-color:var(--border)}
+.spin{display:inline-block;width:11px;height:11px;border:1.5px solid rgba(8,34,31,.25);
+  border-top-color:var(--on-accent);border-radius:50%;animation:s .65s linear infinite;
+  vertical-align:-1px;margin-right:7px}
+@keyframes s{to{transform:rotate(360deg)}}
+
+.tagline{font-size:11px;color:var(--ink-3);margin-top:20px;line-height:1.7;
+  padding-top:14px;border-top:1px solid var(--border)}
+
+main{
+  flex:1;min-width:0;padding:26px 28px 40px;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:#3a3a38 transparent;
+}
+main::-webkit-scrollbar{width:10px}
+main::-webkit-scrollbar-thumb{background:#333332;border-radius:10px;border:3px solid var(--page)}
+
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;
+  background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.card{background:var(--bg);padding:15px 16px;transition:background .15s var(--ease)}
+.card:hover{background:#262625}
+.card .k{font-size:10.5px;color:var(--ink-3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:9px}
+.card .v{font-size:25px;font-weight:500;line-height:1.15;color:var(--ink-1);
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.card .n{font-size:11.5px;color:var(--ink-3);margin-top:8px;line-height:1.6;
+  font-variant-numeric:tabular-nums}
+
+.sec{margin-top:26px}
+.sec h2{font-size:10.5px;font-weight:500;color:var(--ink-3);
+  margin-bottom:11px;letter-spacing:.09em;text-transform:uppercase}
+.sec h2 .ok,.sec h2 .wa,.sec h2 .ba{text-transform:none;letter-spacing:0;font-size:12px}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px;
+  border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+th{text-align:left;color:var(--ink-3);font-weight:500;font-size:10.5px;
+  letter-spacing:.06em;text-transform:uppercase;padding:9px 11px;
+  background:var(--panel-2);border-bottom:1px solid var(--border)}
+td{padding:10px 11px;border-bottom:1px solid rgba(255,255,255,.045);
+  vertical-align:top;color:var(--ink-2);line-height:1.5}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td,table tr:hover td{background:rgba(255,255,255,.018)}
+td.rule{color:var(--ink-3);font-size:11.5px}
+
+.pill{display:inline-block;padding:2px 8px;border-radius:5px;font-size:10.5px;
+  font-weight:500;letter-spacing:.02em;white-space:nowrap;border:1px solid transparent}
+.pill.pass{background:rgba(91,228,155,.10);color:var(--ok);border-color:rgba(91,228,155,.22)}
+.pill.warn{background:rgba(232,163,61,.10);color:var(--warn);border-color:rgba(232,163,61,.22)}
+.pill.fail{background:rgba(255,107,90,.10);color:var(--fail);border-color:rgba(255,107,90,.22)}
+
+.diag{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;
+  background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.metric{background:var(--bg);padding:13px 15px}
+.metric .k{font-size:10.5px;color:var(--ink-3);letter-spacing:.05em;line-height:1.4}
+.metric .v{font-size:21px;font-weight:500;margin-top:6px;color:var(--ink-1);
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.ok{color:var(--ok)}.wa{color:var(--warn)}.ba{color:var(--fail)}
+
+ul.plain{list-style:none;font-size:12px;color:rgba(255,107,90,.85);line-height:1.75;margin-top:10px}
+ul.note{list-style:none;font-size:12px;color:var(--ink-3);line-height:1.75;margin-top:6px}
+
+.actions{display:flex;gap:8px;margin-top:26px;flex-wrap:wrap;align-items:center}
+.btn{
+  background:transparent;border:1px solid var(--border);color:var(--ink-2);
+  padding:9px 14px;border-radius:var(--r-sm);font-size:12.5px;cursor:pointer;
+  text-decoration:none;font-family:inherit;line-height:1.4;
+  transition:background .15s var(--ease),border-color .15s var(--ease),color .15s var(--ease);
+}
+.btn:hover{background:var(--bg);border-color:var(--border-2);color:var(--ink-1)}
+.btn:active{background:var(--panel-2)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+.empty{color:var(--ink-3);font-size:12.5px;padding:64px 0;text-align:center;letter-spacing:.02em}
+.err{background:rgba(255,107,90,.09);border:1px solid rgba(255,107,90,.28);
+  color:#ffb3a8;padding:11px 14px;border-radius:var(--r-sm);font-size:12.5px;margin-bottom:16px}
+
+.drawbox{background:var(--panel-2);border:1px solid var(--border);border-radius:var(--r-sm);
+  padding:11px 13px;margin-top:9px;font-size:11.5px;line-height:1.7;color:var(--ink-2);
+  font-variant-numeric:tabular-nums}
+.drawbox b{color:var(--accent);font-size:11.5px;display:inline;font-weight:500}
+.drawbox .kv{color:var(--ink-2)}
+.drawbox ul{list-style:none;margin-top:7px;color:var(--ink-3);font-size:11px;line-height:1.65}
+
+details{margin-top:26px;border:1px solid var(--border);border-radius:var(--r);
+  background:var(--bg);overflow:hidden}
+summary{padding:12px 15px;cursor:pointer;font-size:12.5px;font-weight:500;
+  color:var(--ink-2);list-style:none;transition:background .15s var(--ease)}
+summary:hover{background:var(--panel-2)}
+summary::-webkit-details-marker{display:none}
+summary::before{content:'+ ';color:var(--accent);font-weight:400}
+details[open] summary::before{content:'\2212  '}
+details table{margin:0 14px 14px;width:calc(100% - 28px);border-radius:var(--r-sm)}
+details .note-row td{color:var(--ink-3);font-size:11.5px;line-height:1.6}
+
+@media (max-width:1180px){
+  .cards,.diag{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:900px){
+  .app{flex-direction:column;height:auto}
+  aside{width:100%;flex:none;border-right:none;border-bottom:1px solid var(--border)}
+  body{overflow:auto;height:auto}
+  .cards,.diag{grid-template-columns:repeat(2,minmax(0,1fr))}
+  main{padding:20px 16px 32px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h1>成像方案生成器</h1>
+    <div class="ver">vision-spec-generator v0.1.0　零依赖</div>
+
+    <div class="label">演示场景（点一下直接出结果）</div>
+    <div class="presets">
+      <button class="preset" data-preset="p1"><b>① 典型算例复算</b><span>12×10mm 视野，精度 0.01mm，静止</span></button>
+      <button class="preset" data-preset="p2"><b>② 先诊断样张，再定光源</b><span>内置样张，40×33mm，精度 0.05mm</span></button>
+      <button class="preset" data-preset="p3"><b>③ 飞拍连锁反应</b><span>速度 200mm/s，曝光压制到 100μs</span></button>
+    </div>
+
+    <div class="label">产品图纸（读公差，自动推参数）</div>
+    <div class="drop" id="pdfDrop" style="border-color:rgba(255,255,255,.13)">
+      <div class="ic" id="pdfText">拖入 PDF 图纸，或点击选择<br><span style="color:#2FD3C5">从公差和外形反推视野、精度</span></div>
+    </div>
+    <div id="drawResult"></div>
+
+    <div class="label">样品图（可跳过）</div>
+    <div class="drop" id="drop">
+      <div class="ic" id="dropText">拖入图片，或点击选择<br>不传图也能算，只是少一项诊断</div>
+    </div>
+
+    <div class="label">检测条件</div>
+    <div class="row">
+      <div class="field"><label>任务类型</label><select id="task"></select></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>精度 mm</label><input id="accuracy" value="0.05"></div>
+      <div class="field"><label>工作距离 mm</label><input id="wd" value="300"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>视野宽 mm</label><input id="fov_w" value="40"></div>
+      <div class="field"><label>视野高 mm</label><input id="fov_h" value="33"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>光源路数</label><input id="channels" value="1"></div>
+      <div class="field"><label>单路功率 W</label><input id="channel_power" value="10"></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="moving"> 运动拍摄（飞拍）</label>
+    <div class="row" id="speedRow" style="display:none">
+      <div class="field"><label>速度 mm/s</label><input id="speed" value="200"></div>
+      <div class="field"><label>高度变化 mm</label><input id="height_var" value="0"></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="program"> 需要程序控制亮度</label>
+
+    <button id="run">生成方案</button>
+    <div class="tagline">同一套引擎，命令行 <code>run.py</code> 与这里输出完全一致。图纸上每个数都能复算。</div>
+    <a class="btn" id="open3d" href="/exploded" target="_blank" onclick="sync3dLink()" style="margin-top:12px;display:block;text-align:center;text-decoration:none">打开 3D 拆解视图 →</a>
+  </aside>
+
+  <main>
+    <div id="errBox"></div>
+    <div id="content"><div class="empty">选择上方任一演示场景，或填好参数后点「生成方案」</div></div>
+  </main>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let imgData = null, useSample = false;
+
+const P = {
+  p1:{task:'表面划痕',accuracy:0.01,fov_w:12,fov_h:10,wd:130,moving:false,speed:0,use_sample:false},
+  p2:{task:'平面字符',accuracy:0.05,fov_w:40,fov_h:33,wd:300,moving:false,speed:0,use_sample:true},
+  p3:{task:'表面划痕',accuracy:0.02,fov_w:30,fov_h:20,wd:200,moving:true,speed:200,use_sample:false},
+};
+
+fetch('/api/tasks').then(r=>r.json()).then(d=>{
+  $('#task').innerHTML = d.tasks.map(t=>`<option>${t}</option>`).join('');
+});
+
+document.querySelectorAll('.preset').forEach(b=>{
+  b.onclick = () => {
+    const p = P[b.dataset.preset];
+    $('#task').value = p.task; $('#accuracy').value = p.accuracy;
+    $('#fov_w').value = p.fov_w; $('#fov_h').value = p.fov_h;
+    $('#wd').value = p.wd; $('#moving').checked = p.moving;
+    $('#speed').value = p.speed || 200;
+    $('#speedRow').style.display = p.moving ? 'flex' : 'none';
+    useSample = p.use_sample; imgData = null;
+    if (useSample) {
+      $('#drop').classList.add('has');
+      $('#dropText').innerHTML = '已载入内置样张<br><span style="color:#2FD3C5">image163 · 2448×2048</span>';
+    } else {
+      $('#drop').classList.remove('has');
+      $('#dropText').innerHTML = '拖入图片，或点击选择<br>不传图也能算，只是少一项诊断';
+    }
+    run();
+  };
+});
+
+const drop = $('#drop');
+drop.onclick = () => {
+  const i = document.createElement('input'); i.type='file'; i.accept='image/*';
+  i.onchange = () => i.files[0] && readFile(i.files[0]);
+  i.click();
+};
+['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',ev=>{ if(ev.dataTransfer.files[0]) readFile(ev.dataTransfer.files[0]); });
+
+function readFile(f){
+  const fr = new FileReader();
+  fr.onload = e => {
+    imgData = e.target.result; useSample = false;
+    drop.classList.add('has');
+    drop.innerHTML = `<img class="thumb" src="${imgData}"><div class="ic" style="margin-top:6px">${f.name}</div>`;
+    drop.onclick = () => { const i=document.createElement('input'); i.type='file'; i.accept='image/*'; i.onchange=()=>i.files[0]&&readFile(i.files[0]); i.click(); };
+  };
+  fr.readAsDataURL(f);
+}
+
+$('#moving').onchange = e => { $('#speedRow').style.display = e.target.checked ? 'flex' : 'none'; };
+
+const pdfDrop = $('#pdfDrop');
+function pickPdf(){
+  const i = document.createElement('input'); i.type='file'; i.accept='.pdf,.txt,application/pdf,text/plain';
+  i.onchange = () => i.files[0] && sendDrawing(i.files[0]);
+  i.click();
+}
+pdfDrop.onclick = pickPdf;
+['dragover','dragenter'].forEach(e=>pdfDrop.addEventListener(e,ev=>{ev.preventDefault();pdfDrop.classList.add('over')}));
+['dragleave','drop'].forEach(e=>pdfDrop.addEventListener(e,ev=>{ev.preventDefault();pdfDrop.classList.remove('over')}));
+pdfDrop.addEventListener('drop',ev=>{ if(ev.dataTransfer.files[0]) sendDrawing(ev.dataTransfer.files[0]); });
+
+function b64enc(buf){
+  const a = new Uint8Array(buf), CH = 0x8000;
+  let s = '';
+  for (let i = 0; i < a.length; i += CH) s += String.fromCharCode.apply(null, a.subarray(i, i + CH));
+  return btoa(s);
+}
+
+async function sendDrawing(f){
+  pdfDrop.querySelector('#pdfText').innerHTML = '正在读图纸…';
+  try{
+    const isPdf = /\.pdf$/i.test(f.name);
+    const buf = await f.arrayBuffer();
+    const body = isPdf
+      ? {pdf: 'data:application/pdf;base64,' + b64enc(buf)}
+      : {text: new TextDecoder('utf-8').decode(buf)};
+    const r = await fetch('/api/drawing', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error || '解析失败');
+    applyDrawing(d, f.name);
+  }catch(e){
+    pdfDrop.querySelector('#pdfText').innerHTML = '读图纸失败<br><span style="color:#FF6B5A">' + e.message.slice(0,70) + '</span>';
+  }
+}
+
+function applyDrawing(d, name){
+  $('#task').value = d.task;
+  $('#accuracy').value = d.accuracy;
+  $('#fov_w').value = d.fov_w;
+  $('#fov_h').value = d.fov_h;
+  pdfDrop.classList.add('has');
+  pdfDrop.querySelector('#pdfText').innerHTML = `已解析 ${name}<br><span style="color:#5BE49B">置信度 ${d.confidence}</span>`;
+  const tolList = d.tolerances.slice(0,3).map(t=>`<li>${t.raw}　公差带 ${t.band} mm</li>`).join('');
+  $('#drawResult').innerHTML = `<div class="drawbox">
+    <b>图纸推出来的检测条件</b>
+    <div class="kv">外形 ${d.max_dim} mm → 视野 <b style="display:inline">${d.fov_w}×${d.fov_h}</b> mm</div>
+    <div class="kv">最严公差 → 精度 <b style="display:inline">${d.accuracy}</b> mm</div>
+    <div class="kv">判定任务：${d.task}</div>
+    <ul>${d.steps.map(s=>`<li>· ${s}</li>`).join('')}</ul>
+    ${d.notes.map(n=>`<li style="color:#E8A33D">! ${n}</li>`).join('')}
+  </div>`;
+  run();
+}
+
+function payload(){
+  return {
+    task: $('#task').value,
+    accuracy: parseFloat($('#accuracy').value) || 0.05,
+    fov_w: parseFloat($('#fov_w').value) || 40,
+    fov_h: parseFloat($('#fov_h').value) || 33,
+    wd: parseFloat($('#wd').value) || 300,
+    moving: $('#moving').checked,
+    speed: parseFloat($('#speed').value) || 0,
+    height_var: parseFloat($('#height_var').value) || 0,
+    channels: parseInt($('#channels').value) || 1,
+    channel_power: parseFloat($('#channel_power').value) || 10,
+    program: $('#program').checked,
+    image: imgData, use_sample: useSample
+  };
+}
+
+$('#run').onclick = run;
+
+async function run(){
+  const btn = $('#run'); btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>推算中';
+  $('#errBox').innerHTML = '';
+  try{
+    const r = await fetch('/api/spec', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload())});
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error || '未知错误');
+    render(d);
+  }catch(e){
+    $('#errBox').innerHTML = `<div class="err">推算失败：${e.message}</div>`;
+  }finally{
+    btn.disabled = false; btn.textContent = '生成方案';
+  }
+}
+
+const stKey = s => s==='pass'?'通过':s==='warn'?'警告':'不通过';
+
+let lastData = null;
+
+function downloadParams(){
+  const d = lastData; if(!d) return;
+  const out = {
+    "_说明": "相机参数对照清单。这不是任何视觉软件或相机 SDK 的工程文件，不能直接导入。字段名按 GenICam SFNC 命名，各品牌相机与视觉软件使用同名特征，可照着在软件里逐项设置。",
+    "_核验": [
+      "分辨率需 ≤ 相机最大分辨率，且满足 WidthInc / HeightInc 对齐（常见为 4 或 8 的倍数）",
+      "曝光单位 μs；静止拍摄未给上限，需按现场亮度实测确定",
+      "增益建议置 0，优先靠光强补亮，避免放大噪声",
+      "触发方式与光源延时需与机台 PLC 时序一起核对",
+      "若改用远心镜头，需按倍率重新选型；本清单的焦距与工作距离仅适用于 FA 定焦"
+    ],
+    "camera": {
+      "Width": d.camera.w,
+      "Height": d.camera.h,
+      "PixelFormat": d.camera.color === '黑白' ? 'Mono8' : 'BayerRG8',
+      "ExposureTime": d.camera.exposure,
+      "ExposureAuto": 'Off',
+      "Gain": 0,
+      "GainAuto": 'Off',
+      "TriggerMode": d.camera.exposure ? 'On' : 'Off',
+      "TriggerSource": d.camera.exposure ? 'Line0' : 'Software',
+      "PixelSize_um": null,
+      "_Interface": (d.camera.interface || '').split('（')[0],
+      "_LensMount": (d.camera.mount || '').split('（')[0],
+      "_PixelDepth": d.camera.depth
+    },
+    "lens": {
+      "FocalLength_mm": d.lens.f,
+      "WorkingDistance_mm": d.lens.wd,
+      "FieldOfViewAngle_deg": d.lens.angle,
+      "DOF_estimate_mm": d.lens.dof,
+      "Telecentric_recommended": d.lens.tele,
+      "LensType_provided": "FA 定焦"
+    },
+    "light": {
+      "Form": d.light.form,
+      "Series": d.light.series,
+      "Angle": d.light.angle || null,
+      "Direction": d.light.direction,
+      "FieldType": d.light.field,
+      "Color": d.light.color,
+      "EmittingArea_mm": d.light.size,
+      "Polarizer": d.light.polar
+    },
+    "controller": {
+      "Series": d.controller.series,
+      "Voltage_V": d.controller.v,
+      "Power_W": d.controller.p,
+      "Channels": d.controller.ch,
+      "Serial": d.controller.serial,
+      "Boost": d.controller.boost
+    },
+    "selfCheck": {
+      "Overall": d.validate.overall,
+      "Pass": d.validate.pass,
+      "Warn": d.validate.warn,
+      "Fail": d.validate.fail,
+      "Attention": d.validate.checks
+        .filter(c => c.status !== 'pass')
+        .map(c => ({ 项目: c.name, 结论: c.status === 'fail' ? '不通过' : '警告', 说明: c.detail }))
+    },
+    "_中文对照": {
+      "Width": "宽度（像素）",
+      "Height": "高度（像素）",
+      "PixelFormat": "像素格式",
+      "ExposureTime": "曝光时间（μs）",
+      "Gain": "增益",
+      "TriggerMode": "触发模式（On=外触发）",
+      "TriggerSource": "触发源（Line0=IO 口）",
+      "FocalLength_mm": "镜头焦距",
+      "WorkingDistance_mm": "工作距离",
+      "Telecentric_recommended": "是否建议远心（尺寸测量场景为 true）",
+      "LensType_provided": "本方案实际给出的镜头类型"
+    }
+  };
+  const blob = new Blob([JSON.stringify(out, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'camera_params_' + new Date().toISOString().slice(0,19).replace(/[:T]/g,'') + '.json';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 3000);
+}
+
+function exportProcedure(){
+  const d = lastData; if(!d || !d.procedure) return;
+  const L = [];
+  L.push('# 检测流程作业指导书 · ' + $('#task').value, '');
+  L.push('- 视野：' + $('#fov_w').value + '×' + $('#fov_h').value + ' mm');
+  L.push('- 像素精度：' + d.camera.accuracy + ' mm/px');
+  L.push('- 最小可检特征：' + $('#accuracy').value + ' mm');
+  L.push('- 光源：' + d.light.form + ' ' + d.light.series + ' · ' + d.light.direction);
+  L.push('');
+  L.push('> 节点名用通用叫法，各视觉软件名称略有差异，按功能对应即可。');
+  L.push('');
+  L.push('| 步 | 功能节点 | 参数 | 出处 |');
+  L.push('|---|---|---|---|');
+  d.procedure.forEach(x => {
+    const p = x.params.map(pp => pp[0] + ' = ' + pp[1]).join('<br>') || '—';
+    const o = x.params.map(pp => pp[2]).filter(Boolean).join('<br>') || '—';
+    L.push('| ' + x.no + ' | ' + x.node + ' | ' + p + ' | ' + o + ' |');
+  });
+  L.push('');
+  d.procedure.filter(x => x.note).forEach(x => {
+    L.push('**第 ' + x.no + ' 步备注**：' + x.note);
+    L.push('');
+  });
+  const blob = new Blob([L.join('\n')], {type:'text/markdown;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '流程作业指导书_' + new Date().toISOString().slice(0,10) + '.md';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 3000);
+}
+
+function sync3dLink(){
+  const a = document.getElementById('open3d');
+  if (!a) return;
+  const fv = (name) => (document.getElementById(name) || {}).value || '';
+  const moving = (document.getElementById('moving') || {}).checked;
+  let u = '/exploded?task=' + encodeURIComponent(fv('task')) +
+          '&accuracy=' + fv('accuracy') +
+          '&fov=' + fv('fov_w') + 'x' + fv('fov_h') +
+          '&wd=' + (fv('wd') || 200);
+  if (moving) u += '&speed=' + (fv('speed') || 200) + '&scan=area';
+  a.href = u;
+}
+
+function render(d){
+  lastData = d;
+  sync3dLink();
+  const c = d.camera, l = d.lens, li = d.light, ct = d.controller, v = d.validate;
+  const overallCls = v.overall==='通过'?'ok':(v.overall==='有警告'?'wa':'ba');
+
+  let diagHtml = '';
+  if(d.diag){
+    const g = d.diag;
+    diagHtml = `<div class="sec"><h2>图像诊断</h2><div class="diag">
+      <div class="metric"><div class="k">灰度差（判据 ≥ 30）</div><div class="v ${g.gray_diff>=30?'ok':'ba'}">${g.gray_diff}</div></div>
+      <div class="metric"><div class="k">过曝像素</div><div class="v ${g.over>5?'ba':'ok'}">${g.over}%</div></div>
+      <div class="metric"><div class="k">清晰度（拉普拉斯方差）</div><div class="v ${g.lap>=50?'ok':'wa'}">${g.lap}</div></div>
+      <div class="metric"><div class="k">综合判定</div><div class="v ${g.grade==='合格'?'ok':(g.grade==='临界'?'wa':'ba')}">${g.grade}</div></div>
+    </div>
+    ${g.issues.length?`<ul class="plain" style="margin-top:10px">${g.issues.map(i=>`<li>· ${i}</li>`).join('')}</ul>`:''}
+    ${g.notes.length?`<ul class="note" style="margin-top:6px">${g.notes.map(i=>`<li>· ${i}</li>`).join('')}</ul>`:''}
+    </div>`;
+  } else if(d.diag_error){
+    diagHtml = `<div class="sec"><h2>图像诊断</h2><div class="note">跳过：${d.diag_error}</div></div>`;
+  }
+
+  const rows = v.checks.map(x=>`<tr>
+      <td>${x.name}</td>
+      <td><span class="pill ${x.status}">${stKey(x.status)}</span></td>
+      <td>${x.detail}</td>
+      <td class="rule">${x.rule}</td></tr>`).join('');
+
+  const yv = (d.yvison && d.yvison.length)
+    ? `<div class="sec"><h2>相机参数（${d.yvison.length} 项，GenICam 通用字段）</h2><table>
+        <tr><th>字段</th><th>原值</th><th>新值</th></tr>
+        ${d.yvison.map(y=>`<tr><td>${y.field}</td><td class="rule">${y.old}</td><td style="color:#2FD3C5">${y.new}</td></tr>`).join('')}
+      </table></div>` : '';
+
+  $('#content').innerHTML = `
+    <div class="cards">
+      <div class="card"><div class="k">相机</div><div class="v">${c.mp} MP</div>
+        <div class="n">${c.w}×${c.h}　${c.sensor}　${c.color}<br>${c.accuracy} mm/px　${(c.interface||'').split('（')[0]}　${(c.mount||'').split('（')[0]}</div></div>
+      <div class="card"><div class="k">镜头</div><div class="v">${l.f} mm</div>
+        <div class="n">WD ${l.wd} mm　视场角 ${l.angle}°<br>景深 ≈ ${l.dof} mm${l.tele?'　远心':''}</div></div>
+      <div class="card"><div class="k">光源</div><div class="v">${li.form || li.direction}</div>
+        <div class="n">${li.series}${li.angle ? '　' + li.angle : ''}　${li.direction}　${li.color}<br>发光面 ${li.size[0]}×${li.size[1]} mm${li.polar?'　需偏振':''}</div></div>
+      <div class="card"><div class="k">控制器</div><div class="v">${ct.series}</div>
+        <div class="n">${ct.v}V / ${ct.p}W / ${ct.ch} 通道<br>${ct.serial?'带串口':''}${ct.boost?'　具增亮':''}</div></div>
+    </div>
+
+    ${diagHtml}
+
+    <div class="sec"><h2>自检复算　<span class="${overallCls}" style="font-weight:600">${v.overall}</span>
+      　<span style="color:#9d9d99;font-weight:400">通过 ${v.pass} / 警告 ${v.warn} / 不通过 ${v.fail}</span></h2>
+      <table><tr><th>检查项</th><th>结论</th><th>实测 / 复算</th><th>依据</th></tr>${rows}</table>
+    </div>
+
+    ${yv}
+
+    <details class="sec"><summary>检测流程作业指导书（${d.procedure.length} 步，通用节点名）</summary>
+      <table><tr><th style="width:44px">步</th><th style="width:230px">功能节点</th><th>参数</th><th style="width:300px">出处</th></tr>
+      ${d.procedure.map(x=>`<tr>
+        <td>${x.no}</td>
+        <td style="color:#efefee">${x.node}</td>
+        <td>${x.params.map(pp=>`${pp[0]} = <span style="color:#2FD3C5">${pp[1]}</span>`).join('<br>') || '—'}</td>
+        <td class="rule">${x.params.map(pp=>pp[2]).filter(Boolean).join('<br>') || '—'}</td></tr>`).join('')}
+      ${d.procedure.filter(x=>x.note).map(x=>`<tr class="note-row"><td></td><td colspan="3">第 ${x.no} 步备注：${x.note}</td></tr>`).join('')}
+      </table>
+    </details>
+
+    <div class="actions">
+      <a class="btn" href="${d.report_url}" target="_blank">打开完整方案书</a>
+      <button class="btn" id="dlParams" onclick="downloadParams()">导出相机参数清单</button>
+      <button class="btn" onclick="exportProcedure()">导出流程步骤</button>
+      <span class="btn" style="border:none;color:#9d9d99;cursor:default">场景：${$('#task').value}　精度 ${$('#accuracy').value}mm　视野 ${$('#fov_w').value}×${$('#fov_h').value}mm</span>
+    </div>`;
+}
+</script>
+</body>
+</html>

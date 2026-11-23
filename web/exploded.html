@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>成像系统拆解 · 四平台流程导出</title>
+<style>
+/* A=graphite+teal  B=400/500  C=canvas-shell  D=css-only  E=instrument */
+:root{
+  --bg:#0b0d0c; --ink-1:#eff1ef; --ink-2:#c2c8c4; --ink-3:#86908b;
+  --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.14);
+  --accent:#2FD3C5; --panel:rgba(15,18,17,.76);
+  --ok:#5BE49B; --warn:#E8A33D;
+  --r:13px; --r-sm:9px;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg); color:var(--ink-2);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:13px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+#scene{position:fixed;inset:0;display:block;width:100%;height:100%}
+.vignette{position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 46%,transparent 34%,rgba(0,0,0,.55) 100%)}
+
+.hud{position:fixed;inset:0;pointer-events:none;
+  display:grid;grid-template-columns:266px minmax(0,1fr) 348px;
+  grid-template-rows:auto minmax(0,1fr) auto;gap:0 22px;padding:22px 24px 20px}
+.hud>*{pointer-events:auto}
+
+/* ---------- 品牌 ---------- */
+.brand{grid-column:1/4;display:flex;align-items:flex-start;gap:11px;margin-bottom:4px;flex-wrap:wrap}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);
+  margin-top:6px;box-shadow:0 0 12px var(--accent);flex:0 0 9px}
+.brand h1{font-size:15px;font-weight:500;color:var(--ink-1);letter-spacing:-.01em}
+.brand p{font-size:11px;color:var(--ink-3);margin-top:2px;letter-spacing:.02em;
+  font-variant-numeric:tabular-nums}
+.brand .spacer{flex:1}
+.topbtns{display:flex;gap:7px}
+.tbtn{background:transparent;border:1px solid var(--line);color:var(--ink-2);
+  padding:6px 11px;border-radius:7px;font-size:11.5px;font-family:inherit;cursor:pointer;
+  transition:background .15s var(--ease),border-color .15s var(--ease),color .15s var(--ease)}
+.tbtn:hover{background:rgba(255,255,255,.05);border-color:var(--line-2);color:var(--ink-1)}
+.tbtn.on{background:rgba(47,211,197,.13);border-color:rgba(47,211,197,.45);color:var(--accent)}
+.tbtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.presets{flex-basis:100%;display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
+.pchip{background:transparent;border:1px solid var(--line);color:var(--ink-3);
+  padding:5px 10px;border-radius:7px;font-size:11px;font-family:inherit;cursor:pointer;
+  letter-spacing:.01em;transition:all .15s var(--ease);white-space:nowrap}
+.pchip:hover{background:rgba(255,255,255,.05);border-color:var(--line-2);color:var(--ink-1)}
+.pchip.on{background:rgba(47,211,197,.13);border-color:rgba(47,211,197,.45);color:var(--accent)}
+.pchip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* ---------- 面板 ---------- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:15px 15px 16px;
+  overflow-y:auto;scrollbar-width:thin;scrollbar-color:#2e3532 transparent;align-self:start;
+  max-height:calc(100vh - 150px)}
+.panel::-webkit-scrollbar{width:8px}
+.panel::-webkit-scrollbar-thumb{background:#2b322f;border-radius:8px;border:2px solid transparent;
+  background-clip:content-box}
+#leftPanel{grid-column:1;grid-row:2}
+#rightPanel{grid-column:3;grid-row:2}
+.foot{grid-row:3}
+
+.ptitle{font-size:10px;font-weight:500;color:var(--ink-3);letter-spacing:.11em;
+  text-transform:uppercase;margin-bottom:10px}
+.ptitle+.ptitle{margin-top:20px}
+
+/* 清单项 */
+.item{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;
+  cursor:pointer;border:1px solid transparent;margin-bottom:2px;
+  transition:background .15s var(--ease),border-color .15s var(--ease)}
+.item:hover{background:rgba(255,255,255,.045)}
+.item:hover .nm{color:var(--ink-1)}
+.item.active{background:rgba(47,211,197,.10);border-color:rgba(47,211,197,.34)}
+.item .sw{width:3px;height:22px;border-radius:2px;flex:0 0 3px;opacity:.85}
+.item .tx{min-width:0;flex:1}
+.item .nm{font-size:12.5px;color:var(--ink-2);transition:color .15s var(--ease);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .sub{font-size:10.5px;color:var(--ink-3);margin-top:1px;font-variant-numeric:tabular-nums;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item.active .nm{color:var(--accent)}
+.item .k{font-size:10.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.dz{border:1px dashed rgba(255,255,255,.13);border-radius:9px;padding:11px 10px;text-align:center;
+  cursor:pointer;margin-bottom:6px;background:rgba(255,255,255,.012);
+  transition:border-color .15s var(--ease),background .15s var(--ease)}
+.dz:hover,.dz.over{border-color:var(--accent);background:rgba(47,211,197,.07)}
+.dz .t{font-size:12px;color:var(--ink-2)}
+.dz .s{font-size:10.5px;color:var(--ink-3);margin-top:3px}
+.dz .s.link{color:var(--accent);margin-top:7px;opacity:.85}
+.dz .s.link:hover{opacity:1}
+.dzr{font-size:10.5px;color:var(--ink-3);line-height:1.65;margin:0 0 4px;
+  padding-left:9px;border-left:2px solid rgba(47,211,197,.45);display:none}
+.dzr.on{display:block}
+.dzr b{color:var(--accent);font-weight:500}
+
+/* 右侧内容 */
+.rhead{margin-bottom:14px}
+.rhead .eyebrow{font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:5px}
+.rhead h2{font-size:16px;font-weight:500;color:var(--ink-1);letter-spacing:-.01em}
+.rhead .desc{font-size:11.5px;color:var(--ink-3);margin-top:5px;line-height:1.6}
+
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;color:var(--ink-3);font-weight:500;font-size:10px;letter-spacing:.07em;
+  text-transform:uppercase;padding:7px 8px;background:rgba(255,255,255,.035);
+  border-bottom:1px solid var(--line)}
+td{padding:8px;border-bottom:1px solid rgba(255,255,255,.045);vertical-align:top;
+  color:var(--ink-2);line-height:1.5}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(255,255,255,.02)}
+td.mono{font-family:Consolas,"SF Mono",monospace;font-size:11.5px;color:var(--accent)}
+td.dim{color:var(--ink-3);font-size:11px}
+td:first-child{color:var(--ink-3);font-size:11.5px}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;
+  background:rgba(255,255,255,.045);border:1px solid var(--line);font-size:10.5px;
+  color:var(--ink-3);font-variant-numeric:tabular-nums}
+.chip i{width:6px;height:6px;border-radius:50%;display:block}
+
+.note{font-size:11px;color:var(--ink-3);line-height:1.65;margin-top:12px;
+  padding-top:11px;border-top:1px solid var(--line)}
+.note b{color:var(--ink-2);font-weight:500}
+
+.stat{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;margin-bottom:4px}
+.stat div{background:rgba(15,18,17,.5);padding:10px 11px}
+.stat .k{font-size:10px;color:var(--ink-3);letter-spacing:.05em}
+.stat .v{font-size:19px;font-weight:500;color:var(--ink-1);margin-top:4px;
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat .v small{font-size:11px;color:var(--ink-3);font-weight:400;margin-left:2px}
+.stat .v.sm{font-size:13.5px;line-height:1.35;word-break:break-word}
+
+/* ---------- 底部引导 ---------- */
+.foot{grid-column:1/4;display:flex;align-items:center;gap:16px;padding:9px 14px;
+  background:rgba(15,18,17,.66);border:1px solid var(--line);border-radius:11px;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);align-self:end}
+.guide{display:flex;gap:15px;flex-wrap:wrap;flex:1}
+.guide span{font-size:11px;color:var(--ink-3);display:flex;align-items:center;gap:6px;
+  white-space:nowrap}
+kbd{font-family:inherit;font-size:10px;padding:2px 6px;border-radius:4px;
+  background:rgba(255,255,255,.07);border:1px solid var(--line-2);color:var(--ink-2)}
+.hint{font-size:11px;color:var(--accent);opacity:0;transition:opacity .3s var(--ease);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.hint.show{opacity:1}
+
+@media (max-width:1240px){
+  .hud{grid-template-columns:230px 1fr 300px;gap:0 14px;padding:16px 16px 14px}
+}
+@media (max-width:980px){
+  .hud{display:flex;flex-direction:column;gap:10px;padding:12px;overflow-y:auto}
+  .panel{max-height:none;width:100%}
+  .foot{align-self:stretch}
+  .guide span:nth-child(n+3){display:none}
+}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="vignette"></div>
+
+<div class="hud">
+  <div class="brand">
+    <div class="dot"></div>
+    <div>
+      <h1>成像系统拆解 · 四平台流程导出</h1>
+      <p>Vision Spec Generator · 点击部件拆解，点击平台看节点链</p>
+    </div>
+    <div class="spacer"></div>
+    <div class="topbtns">
+      <a class="tbtn" href="/studio" title="回到方案工作台">← 返回</a>
+      <button class="tbtn" id="btnExplode">全部拆解</button>
+      <button class="tbtn" id="btnReset">复位视角</button>
+    </div>
+    <div class="presets" id="presets"></div>
+  </div>
+
+  <aside class="panel" id="leftPanel">
+    <div class="dz" id="dz">
+      <div class="t">拖入产品图纸</div>
+      <div class="s">PDF / TXT　自动推视野与精度</div>
+      <div class="s link" id="dzSample">没有图纸？用示例连接器图纸 →</div>
+    </div>
+    <div class="dzr" id="dzr"></div>
+    <div class="ptitle">成像层 · 四组计算</div>
+    <div id="layerList"></div>
+    <div class="ptitle">导出层 · 目标平台</div>
+    <div id="platList"></div>
+  </aside>
+
+  <aside class="panel" id="rightPanel"></aside>
+
+  <div class="foot">
+    <div class="guide">
+      <span><kbd>拖动</kbd> 旋转</span>
+      <span><kbd>滚轮</kbd> 缩放</span>
+      <span><kbd>单击</kbd> 拆解 / 选中</span>
+      <span><kbd>双击</kbd> 空白复位</span>
+      <span><kbd>空格</kbd> 全部拆解</span>
+    </div>
+    <div class="hint" id="hint"></div>
+  </div>
+</div>
+
+<script src="/vendor/three.min.js"></script>
+<script>
+'use strict';
+const T = THREE;
+
+/* ==================================================================
+   1. 基础环境
+   ================================================================== */
+const canvas = document.getElementById('scene');
+const renderer = new T.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = T.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.06;
+if ('outputColorSpace' in renderer && T.SRGBColorSpace) renderer.outputColorSpace = T.SRGBColorSpace;
+
+const scene = new T.Scene();
+scene.background = new T.Color(0x0b0d0c);
+scene.fog = new T.FogExp2(0x0b0d0c, 0.0145);
+
+const camera = new T.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 300);
+
+/* 用 canvas 生成环境贴图：金属件需要一点反射，否则全是死黑 */
+(function buildEnv(){
+  const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+  const g = c.getContext('2d');
+  const grd = g.createLinearGradient(0, 0, 0, 256);
+  grd.addColorStop(0.00, '#5a5f5c');
+  grd.addColorStop(0.38, '#262b29');
+  grd.addColorStop(1.00, '#0a0c0b');
+  g.fillStyle = grd; g.fillRect(0, 0, 512, 256);
+  g.fillStyle = 'rgba(255,252,244,.92)';
+  g.beginPath(); g.ellipse(140, 46, 88, 22, 0, 0, Math.PI*2); g.fill();
+  g.fillStyle = 'rgba(206,224,238,.40)';
+  g.beginPath(); g.ellipse(384, 66, 108, 16, 0, 0, Math.PI*2); g.fill();
+  g.fillStyle = 'rgba(47,211,197,.14)';
+  g.beginPath(); g.ellipse(268, 150, 70, 12, 0, 0, Math.PI*2); g.fill();
+  const tex = new T.CanvasTexture(c);
+  tex.mapping = T.EquirectangularReflectionMapping;
+  if ('colorSpace' in tex && T.SRGBColorSpace) tex.colorSpace = T.SRGBColorSpace;
+  scene.environment = tex;
+})();
+
+/* 灯光 */
+scene.add(new T.AmbientLight(0x3c4643, 0.95));
+const key = new T.DirectionalLight(0xfff6ec, 3.3);
+key.position.set(6, 9.5, 7.5);
+scene.add(key);
+const key2 = new T.DirectionalLight(0xbfe0ff, 1.15);
+key2.position.set(-7, 5, 4);
+scene.add(key2);
+const rim = new T.DirectionalLight(0x6ff0e0, 1.05);
+rim.position.set(-5.5, 2.2, -7);
+scene.add(rim);
+const fill = new T.DirectionalLight(0x8fb0c2, 0.55);
+fill.position.set(0, -6, 4);
+scene.add(fill);
+const core = new T.PointLight(0x2FD3C5, 2.2, 5.5, 2);
+core.position.set(0, 0.1, 1.9);
+scene.add(core);
+
+/* 地面网格 + 星点 */
+const grid = new T.GridHelper(60, 60, 0x1d2a27, 0x131a18);
+grid.position.y = -2.85;
+grid.material.transparent = true;
+grid.material.opacity = 0.55;
+scene.add(grid);
+
+(function stars(){
+  const N = 520, pos = new Float32Array(N*3);
+  for (let i = 0; i < N; i++){
+    const r = 12 + Math.random()*22;
+    const th = Math.random()*Math.PI*2;
+    const ph = Math.acos(2*Math.random()-1);
+    pos[i*3]   = r*Math.sin(ph)*Math.cos(th);
+    pos[i*3+1] = r*Math.cos(ph)*0.55 + 2;
+    pos[i*3+2] = r*Math.sin(ph)*Math.sin(th);
+  }
+  const geo = new T.BufferGeometry();
+  geo.setAttribute('position', new T.BufferAttribute(pos, 3));
+  const mat = new T.PointsMaterial({color:0x6fa9a0, size:0.055, transparent:true,
+    opacity:0.55, depthWrite:false, sizeAttenuation:true});
+  scene.add(new T.Points(geo, mat));
+})();
+
+/* ==================================================================
+   2. 材质与工具
+   ================================================================== */
+const BASE_MAT = {
+  body:     new T.MeshStandardMaterial({color:0x2b2f31, metalness:0.72, roughness:0.42}),
+  bodyDark: new T.MeshStandardMaterial({color:0x14171a, metalness:0.72, roughness:0.46}),
+  plate:    new T.MeshStandardMaterial({color:0x383d41, metalness:0.88, roughness:0.3}),
+  rubber:   new T.MeshStandardMaterial({color:0x0d0f10, metalness:0.15, roughness:0.9}),
+  glass:    new T.MeshPhysicalMaterial({color:0x0a2024, metalness:0.15, roughness:0.06,
+              transparent:true, opacity:0.92, clearcoat:1, clearcoatRoughness:0.05}),
+  gold:     new T.MeshStandardMaterial({color:0xb08f2c, metalness:1.0, roughness:0.34}),
+  pcb:      new T.MeshStandardMaterial({color:0x0f2a24, metalness:0.35, roughness:0.62}),
+  led:      new T.MeshBasicMaterial({color:0x9df3e7}),
+  ledAmber: new T.MeshBasicMaterial({color:0xffd99a}),
+};
+function m(name){ return BASE_MAT[name].clone(); }
+function collectMats(g){
+  const arr = [];
+  g.traverse(o => {
+    if (o.material){
+      const list = Array.isArray(o.material) ? o.material : [o.material];
+      list.forEach(mm => {
+        if (mm.emissive && mm.userData.baseEm === undefined){
+          mm.userData.baseEm = mm.emissive.getHex();
+          mm.userData.baseEmI = mm.emissiveIntensity;
+          /* 本来就黑的自发光，把强度归零：只改颜色不改强度的话，
+             选中瞬间会从 1 往下收敛，低帧率下会停在半亮状态 */
+          if (mm.userData.baseEm === 0x000000) mm.emissiveIntensity = 0;
+          arr.push(mm);
+        }
+      });
+    }
+  });
+  g.userData.mats = arr;
+  return g;
+}
+/* 发光精灵：把 additive 光斑贴在部件上，比纯 bloom 更可控 */
+const GLOW_TEX = (function(){
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grd.addColorStop(0, 'rgba(255,255,255,1)');
+  grd.addColorStop(0.28, 'rgba(190,255,246,.55)');
+  grd.addColorStop(1, 'rgba(47,211,197,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+  return new T.CanvasTexture(c);
+})();
+function makeGlow(size, color, opacity){
+  const sp = new T.Sprite(new T.SpriteMaterial({
+    map:GLOW_TEX, color:color || 0x2FD3C5, transparent:true,
+    opacity:opacity === undefined ? 0.45 : opacity,
+    blending:T.AdditiveBlending, depthWrite:false, depthTest:false
+  }));
+  sp.scale.set(size, size, 1);
+  return sp;
+}
+
+/* ==================================================================
+   3. 成像系统建模（四层，全部由几何体生成）
+   ================================================================== */
+const assembly = new T.Group();
+assembly.rotation.y = 0.34;
+scene.add(assembly);
+
+const labelGroup = new T.Group();
+scene.add(labelGroup);
+
+/* 标签贴图：字号自适应，长参数不溢出 */
+function fitText(g, text, maxW, startPx, family){
+  let px = startPx;
+  while (px > 15){
+    g.font = '400 ' + px + 'px ' + family;
+    if (g.measureText(text).width <= maxW) return px;
+    px -= 1;
+  }
+  g.font = '400 ' + px + 'px ' + family;
+  let t = text;
+  while (t.length > 4 && g.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+  return px;
+}
+
+function makeLabel(text, sub, color){
+  const W = 512, H = 132;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  const family = '"Microsoft YaHei","PingFang SC",sans-serif';
+
+  g.fillStyle = color; g.fillRect(0, 34, 3, 62);
+  g.textBaseline = 'top';
+
+  let nm = text;
+  fitText(g, nm, 466, 40, family);
+  while (g.measureText(nm).width > 466 && nm.length > 3) nm = nm.slice(0, -1);
+  g.fillStyle = '#eff1ef';
+  g.fillText(nm, 20, 32);
+
+  let sb = sub || '';
+  fitText(g, sb, 466, 26, family);
+  while (g.measureText(sb + '…').width > 466 && sb.length > 4) sb = sb.slice(0, -1);
+  if (sb !== (sub || '')) sb += '…';
+  g.fillStyle = 'rgba(214,224,219,.55)';
+  g.fillText(sb, 20, 84);
+
+  const tex = new T.CanvasTexture(c);
+  if ('colorSpace' in tex && T.SRGBColorSpace) tex.colorSpace = T.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const sp = new T.Sprite(new T.SpriteMaterial({map:tex, transparent:true, opacity:0,
+    depthWrite:false, depthTest:false}));
+  sp.scale.set(1.28, 0.33, 1);
+  return sp;
+}
+
+/* LAYERS 由场景数据重建：ctr l→light→lens→cam 自下而上 */
+let LAYERS = [];
+const GAP = 0.27;
+
+const BUILDERS = {ctrl: buildController, light: buildLight, lens: buildLens, cam: buildCamera};
+
+function clearGroup(g){
+  while (g.children.length){
+    const c = g.children.pop();
+    c.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material){
+        if (o.material.map && o.material.map !== GLOW_TEX) o.material.map.dispose();
+        o.material.dispose();
+      }
+    });
+  }
+}
+
+/* 把内层组整体下移，使外层原点落在几何中心，堆叠才好算 */
+function centered(inner, h, centerY){
+  const g = new T.Group();
+  inner.position.y = -centerY;
+  g.add(inner);
+  return {group: g, h: h};
+}
+
+/* ---------------- 控制器：通道数决定指示灯数量 ---------------- */
+function buildController(spec){
+  const inner = new T.Group();
+  const base = new T.Mesh(new T.RoundedBoxGeometry(2.48, 0.1, 1.86, 3, 0.03), m('bodyDark'));
+  inner.add(base);
+  const body = new T.Mesh(new T.RoundedBoxGeometry(2.26, 0.24, 1.64, 3, 0.04), m('body'));
+  body.position.y = 0.16; inner.add(body);
+
+  const n = Math.max(1, Math.min(8, spec.ch || 4));
+  const span = 1.58;
+  for (let i = 0; i < n; i++){
+    const x = n === 1 ? 0 : -span/2 + i * (span / (n - 1));
+    const ch = new T.Mesh(new T.BoxGeometry(0.34, 0.045, 0.44), m('plate'));
+    ch.position.set(x, 0.295, 0.26); inner.add(ch);
+    const pip = new T.Mesh(new T.CircleGeometry(0.045, 18), m('led'));
+    pip.rotation.x = -Math.PI/2;
+    pip.position.set(x, 0.322, 0.26); inner.add(pip);
+    const term = new T.Mesh(new T.BoxGeometry(0.085, 0.085, 0.085), m('gold'));
+    term.position.set(x, 0.31, -0.02); inner.add(term);
+    const glow = makeGlow(0.15, 0x2FD3C5, 0.32);
+    glow.position.set(x, 0.34, 0.26); inner.add(glow);
+  }
+  /* 串口 + 散热槽 */
+  const port = new T.Mesh(new T.BoxGeometry(0.44, 0.16, 0.2), m('bodyDark'));
+  port.position.set(-0.82, 0.24, -0.83); inner.add(port);
+  for (let i = 0; i < 7; i++){
+    const fin = new T.Mesh(new T.BoxGeometry(1.5, 0.025, 0.05), m('bodyDark'));
+    fin.position.set(0.1, 0.29, -0.5 - i * 0.09); inner.add(fin);
+  }
+  [[-1.05,-0.78],[1.05,-0.78],[-1.05,0.78],[1.05,0.78]].forEach(q => {
+    const foot = new T.Mesh(new T.CylinderGeometry(0.05, 0.05, 0.05, 12), m('rubber'));
+    foot.position.set(q[0], -0.075, q[1]); inner.add(foot);
+  });
+  return centered(inner, 0.46, 0.12);
+}
+
+/* ---------------- 光源：形态由型号代码决定 ---------------- */
+function buildLight(spec){
+  const inner = new T.Group();
+  const shape = spec.shape || 'ring';
+  const r = spec.radius || 0.62;
+
+  if (shape === 'ring'){
+    const housing = new T.Mesh(new T.TorusGeometry(r, 0.075, 14, 64), m('body'));
+    housing.rotation.x = Math.PI/2; inner.add(housing);
+    const diffuser = new T.Mesh(new T.TorusGeometry(r, 0.028, 10, 64),
+      new T.MeshStandardMaterial({color:0xdff7f2, emissive:0x2FD3C5, emissiveIntensity:0.55,
+        metalness:0, roughness:0.75}));
+    diffuser.rotation.x = Math.PI/2; diffuser.position.y = -0.062; inner.add(diffuser);
+    const ledGeo = new T.SphereGeometry(0.026, 10, 10);
+    const ledMat = m('ledAmber');
+    const n = spec.count || 28;
+    for (let i = 0; i < n; i++){
+      const ang = i/n * Math.PI*2;
+      const led = new T.Mesh(ledGeo, ledMat);
+      led.position.set(Math.cos(ang)*(r-0.06), -0.045, Math.sin(ang)*(r-0.06));
+      inner.add(led);
+    }
+    const baffle = new T.Mesh(new T.CylinderGeometry(r*0.82, r*0.82, 0.05, 48, 1, true), m('bodyDark'));
+    inner.add(baffle);
+    for (let i = 0; i < 3; i++){
+      const ang = i/3*Math.PI*2 + 0.4;
+      const post = new T.Mesh(new T.CylinderGeometry(0.028, 0.028, 0.52, 10), m('plate'));
+      post.position.set(Math.cos(ang)*(r+0.06), -0.28, Math.sin(ang)*(r+0.06));
+      inner.add(post);
+    }
+    const ringGlow = makeGlow(r*2.4, 0x2FD3C5, 0.16);
+    ringGlow.position.set(0, -0.08, 0);
+    inner.add(ringGlow);
+    return centered(inner, 0.5, -0.14);
+  }
+
+  if (shape === 'panel'){
+    /* 背光：底部整块发光面 */
+    const frame = new T.Mesh(new T.RoundedBoxGeometry(r*2.1, 0.09, r*2.1, 3, 0.03), m('bodyDark'));
+    inner.add(frame);
+    const face = new T.Mesh(new T.PlaneGeometry(r*1.94, r*1.94),
+      new T.MeshBasicMaterial({color:0xdff7f2, transparent:true, opacity:0.72}));
+    face.rotation.x = -Math.PI/2; face.position.y = 0.05; inner.add(face);
+    const halo = makeGlow(r*2.7, 0xcffff5, 0.11);
+    halo.position.y = 0.06; inner.add(halo);
+    return centered(inner, 0.2, 0.02);
+  }
+
+  if (shape === 'coax'){
+    /* 同轴：45° 半透半反立方体 + 侧向进光 */
+    const box = new T.Mesh(new T.BoxGeometry(0.56, 0.56, 0.56),
+      new T.MeshStandardMaterial({color:0x1c2224, metalness:0.9, roughness:0.26,
+        transparent:true, opacity:0.82}));
+    inner.add(box);
+    const mirror = new T.Mesh(new T.BoxGeometry(0.52, 0.52, 0.016),
+      new T.MeshBasicMaterial({color:0x6fe3d6, transparent:true, opacity:0.5}));
+    mirror.rotation.z = -Math.PI / 4;
+    inner.add(mirror);
+    const aperture = new T.Mesh(new T.TorusGeometry(0.17, 0.014, 8, 40),
+      new T.MeshBasicMaterial({color:0x8ff0e4}));
+    aperture.rotation.x = Math.PI / 2;
+    aperture.position.y = -0.285;
+    inner.add(aperture);
+    const port = new T.Mesh(new T.CylinderGeometry(0.11, 0.11, 0.2, 20), m('body'));
+    port.rotation.z = Math.PI/2; port.position.set(0.34, 0.06, 0); inner.add(port);
+    const halo = makeGlow(1.5, 0x2FD3C5, 0.16);
+    inner.add(halo);
+    return centered(inner, 0.62, 0.0);
+  }
+
+  if (shape === 'dome'){
+    /* 圆顶：半球腔漫反射 */
+    const dome = new T.Mesh(new T.SphereGeometry(r, 32, 18, 0, Math.PI*2, 0, Math.PI/2),
+      new T.MeshStandardMaterial({color:0xd8e2de, metalness:0.1, roughness:0.92,
+        side:T.DoubleSide, transparent:true, opacity:0.55,
+        emissive:0x2FD3C5, emissiveIntensity:0.18}));
+    inner.add(dome);
+    const rim = new T.Mesh(new T.TorusGeometry(r, 0.022, 8, 56),
+      new T.MeshBasicMaterial({color:0x2FD3C5, transparent:true, opacity:0.75}));
+    rim.rotation.x = Math.PI/2; inner.add(rim);
+    const halo = makeGlow(r*2.2, 0x2FD3C5, 0.14);
+    inner.add(halo);
+    return centered(inner, r + 0.1, 0.1);
+  }
+
+  if (shape === 'bars'){
+    /* 条形光：两侧对射 */
+    const L = spec.length || 1.2;
+    for (const sx of [-1, 1]){
+      const bar = new T.Mesh(new T.RoundedBoxGeometry(0.1, 0.13, L, 3, 0.03), m('body'));
+      bar.position.set(sx * 0.62, 0, 0); inner.add(bar);
+      const strip = new T.Mesh(new T.BoxGeometry(0.025, 0.02, L*0.92),
+        new T.MeshBasicMaterial({color:0xfff0d0}));
+      strip.position.set(sx * 0.57, 0, 0); inner.add(strip);
+      const handle = new T.Mesh(new T.CylinderGeometry(0.02, 0.02, 0.34, 8), m('plate'));
+      handle.rotation.z = Math.PI/2;
+      handle.position.set(sx * 0.82, 0.1, 0); inner.add(handle);
+    }
+    return centered(inner, 0.32, 0.0);
+  }
+
+  if (shape === 'line'){
+    /* 线光：一条长条，配线阵 */
+    const L = spec.length || 1.6;
+    const body = new T.Mesh(new T.RoundedBoxGeometry(L, 0.16, 0.13, 3, 0.035), m('body'));
+    inner.add(body);
+    const strip = new T.Mesh(new T.BoxGeometry(L*0.94, 0.02, 0.03),
+      new T.MeshBasicMaterial({color:0xfff4dc}));
+    strip.position.y = -0.085; inner.add(strip);
+    const halo = makeGlow(L*1.4, 0xffe9c0, 0.14);
+    halo.position.y = -0.1; inner.add(halo);
+    for (const sx of [-1, 1]){
+      const cap = new T.Mesh(new T.CylinderGeometry(0.05, 0.05, 0.06, 12), m('plate'));
+      cap.rotation.z = Math.PI/2; cap.position.set(sx * (L/2 + 0.02), 0, 0); inner.add(cap);
+    }
+    return centered(inner, 0.22, 0.0);
+  }
+
+  /* tunnel：隧道光，环形腔体 */
+  const shell = new T.Mesh(new T.CylinderGeometry(r*0.8, r*1.05, 0.46, 40, 1, true),
+    new T.MeshStandardMaterial({color:0xd8e2de, metalness:0.1, roughness:0.9,
+      side:T.DoubleSide, transparent:true, opacity:0.5,
+      emissive:0x2FD3C5, emissiveIntensity:0.16}));
+  inner.add(shell);
+  const ring = new T.Mesh(new T.TorusGeometry(r*0.8, 0.03, 8, 48),
+    new T.MeshBasicMaterial({color:0x2FD3C5}));
+  ring.rotation.x = Math.PI/2; ring.position.y = 0.23; inner.add(ring);
+  return centered(inner, 0.5, 0.0);
+}
+
+/* ---------------- 镜头：类型决定外形 ---------------- */
+function buildLens(spec){
+  const inner = new T.Group();
+  const kind = spec.kind || 'fa';
+  const len = spec.len || 0.6;
+  const d = spec.d || 0.3;
+
+  const lensMat = m('body');
+  lensMat.color.setHex(0x42474a);
+  lensMat.roughness = 0.34;
+
+  const barrel = new T.Mesh(new T.CylinderGeometry(d, d, len, 48), lensMat);
+  inner.add(barrel);
+
+  if (kind === 'tele'){
+    /* 远心：前组更大，带台阶 */
+    const front = new T.Mesh(new T.CylinderGeometry(d*1.42, d*1.42, 0.16, 48), m('plate'));
+    front.position.y = -len/2 - 0.05; inner.add(front);
+    const step = new T.Mesh(new T.CylinderGeometry(d*1.18, d*1.18, 0.06, 48), m('bodyDark'));
+    step.position.y = -len/2 + 0.06; inner.add(step);
+    const glass = new T.Mesh(new T.CylinderGeometry(d*1.3, d*1.3, 0.02, 48), m('glass'));
+    glass.position.y = -len/2 - 0.12; inner.add(glass);
+  } else if (kind === 'line'){
+    for (let i = 0; i < 3; i++){
+      const ring = new T.Mesh(new T.TorusGeometry(d + 0.012, 0.014, 8, 56), m('plate'));
+      ring.rotation.x = Math.PI/2; ring.position.y = len*0.3 - i * len*0.28; inner.add(ring);
+    }
+    const mount = new T.Mesh(new T.CylinderGeometry(d*1.1, d*1.1, 0.08, 48), m('plate'));
+    mount.position.y = len/2 + 0.02; inner.add(mount);
+    const glass = new T.Mesh(new T.CylinderGeometry(d*0.92, d*0.92, 0.02, 48), m('glass'));
+    glass.position.y = -len/2 - 0.01; inner.add(glass);
+  } else {
+    for (let i = 0; i < 3; i++){
+      const ring = new T.Mesh(new T.TorusGeometry(d + 0.003, 0.014, 8, 56), m('plate'));
+      ring.rotation.x = Math.PI/2; ring.position.y = len*0.22 - i * len*0.2; inner.add(ring);
+    }
+    const baseRing = new T.Mesh(new T.CylinderGeometry(d*0.83, d*0.83, 0.07, 48), m('plate'));
+    baseRing.position.y = len/2 + 0.03; inner.add(baseRing);
+    const cMount = new T.Mesh(new T.TorusGeometry(d*0.73, 0.022, 10, 48), m('gold'));
+    cMount.rotation.x = Math.PI/2; cMount.position.y = len/2 + 0.07; inner.add(cMount);
+    const bezel = new T.Mesh(new T.TorusGeometry(d*0.95, 0.026, 12, 56), m('plate'));
+    bezel.rotation.x = Math.PI/2; bezel.position.y = -len/2 + 0.03; inner.add(bezel);
+    const glass = new T.Mesh(new T.CylinderGeometry(d*0.86, d*0.86, 0.02, 48), m('glass'));
+    glass.position.y = -len/2 + 0.01; inner.add(glass);
+    const coat = new T.Mesh(new T.CircleGeometry(d*0.8, 48),
+      new T.MeshBasicMaterial({color:0x2fa79c, transparent:true, opacity:0.55}));
+    coat.rotation.x = Math.PI/2; coat.position.y = -len/2 - 0.002; inner.add(coat);
+    const iris = new T.Mesh(new T.TorusGeometry(d*0.97, 0.008, 6, 56),
+      new T.MeshBasicMaterial({color:0xb08f2c}));
+    iris.rotation.x = Math.PI/2; iris.position.y = 0.02; inner.add(iris);
+  }
+  return centered(inner, len + 0.1, 0);
+}
+
+/* ---------------- 相机：面阵方箱 / 线阵长条 ---------------- */
+function buildCamera(spec){
+  const inner = new T.Group();
+  const shape = spec.shape || 'box';
+  const sz = spec.size || [1.14, 0.6, 0.94];
+
+  const body = new T.Mesh(new T.RoundedBoxGeometry(sz[0], sz[1], sz[2], 5, 0.05), m('body'));
+  inner.add(body);
+
+  const bottom = -sz[1]/2;
+
+  if (shape === 'bar'){
+    /* 线阵：细长条 + 通长镜头座 + 顶部散热条 */
+    const face = new T.Mesh(new T.RoundedBoxGeometry(sz[0]*0.96, 0.1, sz[2]*0.92, 3, 0.02), m('plate'));
+    face.position.y = bottom + 0.02; inner.add(face);
+    const mount = new T.Mesh(new T.CylinderGeometry(spec.mount_d || 0.3, spec.mount_d || 0.3, 0.1, 40), m('plate'));
+    mount.position.y = bottom - 0.06; inner.add(mount);
+    const slot = new T.Mesh(new T.BoxGeometry(sz[0]*0.9, 0.012, 0.02), m('led'));
+    slot.position.set(0, sz[1]/2 + 0.008, 0.06); inner.add(slot);
+    for (let i = 0; i < 8; i++){
+      const fin = new T.Mesh(new T.BoxGeometry(sz[0]*0.9, 0.03, 0.02), m('bodyDark'));
+      fin.position.set(0, sz[1]/2 - 0.02, -sz[2]/2 + 0.06 + i*0.045);
+      inner.add(fin);
+    }
+    for (const sx of [-1, 1]){
+      const conn = new T.Mesh(new T.CylinderGeometry(0.05, 0.05, 0.09, 16), m('bodyDark'));
+      conn.rotation.x = Math.PI/2;
+      conn.position.set(sx * sz[0]*0.34, 0, -sz[2]/2 - 0.03);
+      inner.add(conn);
+    }
+  } else {
+    const face = new T.Mesh(new T.RoundedBoxGeometry(sz[0]*1.05, 0.12, sz[2]*1.06, 4, 0.03), m('plate'));
+    face.position.y = bottom + 0.03; inner.add(face);
+    const mount = new T.Mesh(new T.CylinderGeometry(spec.mount_d || 0.2, spec.mount_d || 0.2, 0.09, 40), m('plate'));
+    mount.position.y = bottom - 0.06; inner.add(mount);
+    const mountIn = new T.Mesh(new T.CylinderGeometry((spec.mount_d || 0.2)*0.78, (spec.mount_d || 0.2)*0.78, 0.02, 40), m('bodyDark'));
+    mountIn.position.y = bottom - 0.1; inner.add(mountIn);
+    const top = new T.Mesh(new T.RoundedBoxGeometry(sz[0]*0.86, 0.05, sz[2]*0.85, 4, 0.02), m('plate'));
+    top.position.y = sz[1]/2 + 0.01; inner.add(top);
+    const strip = new T.Mesh(new T.BoxGeometry(sz[0]*0.46, 0.012, 0.028), m('led'));
+    strip.position.set(0, sz[1]/2 + 0.03, sz[2]*0.21); inner.add(strip);
+    const conn = new T.Mesh(new T.CylinderGeometry(0.062, 0.062, 0.1, 20), m('gold'));
+    conn.rotation.x = Math.PI/2; conn.position.set(-sz[0]*0.24, 0.06, -sz[2]/2 - 0.04); inner.add(conn);
+    const conn2 = new T.Mesh(new T.CylinderGeometry(0.05, 0.05, 0.09, 20), m('bodyDark'));
+    conn2.rotation.x = Math.PI/2; conn2.position.set(sz[0]*0.09, 0.06, -sz[2]/2 - 0.04); inner.add(conn2);
+    for (let i = 0; i < 6; i++){
+      const fin = new T.Mesh(new T.BoxGeometry(sz[0]*0.78, 0.032, 0.028), m('bodyDark'));
+      fin.position.set(0, sz[1]*0.26 - i*sz[1]*0.12, -sz[2]/2 + 0.01); inner.add(fin);
+    }
+    for (const q of [[-1,1],[1,1],[-1,-1],[1,-1]]){
+      const sc = new T.Mesh(new T.CylinderGeometry(0.025, 0.025, 0.015, 12), m('gold'));
+      sc.position.set(q[0]*sz[0]*0.44, q[1]*sz[1]*0.4, sz[2]/2 + 0.005);
+      sc.rotation.x = Math.PI/2; inner.add(sc);
+    }
+    const st = new T.Mesh(new T.SphereGeometry(0.021, 12, 12), m('led'));
+    st.position.set(sz[0]*0.36, sz[1]*0.32, sz[2]/2 + 0.01); inner.add(st);
+    const stGlow = makeGlow(0.2, 0x5BE49B, 0.55);
+    stGlow.position.copy(st.position); inner.add(stGlow);
+  }
+  return centered(inner, sz[1] + 0.16, 0);
+}
+
+/* ---------------- 按场景数据重建整台机器 ---------------- */
+function buildAssembly(data){
+  clearGroup(assembly);
+  clearGroup(labelGroup);
+  LAYERS = [];
+
+  const geo = data.geometry;
+  const specs = {ctrl: {ch: 4}, light: geo.light, lens: geo.lens, cam: geo.cam};
+  if (data.panels && data.panels.ctrl){
+    const mch = /(\d+)\s*路/.exec(data.panels.ctrl.sub || '');
+    if (mch) specs.ctrl.ch = parseInt(mch[1], 10);
+  }
+
+  const order = ['ctrl', 'light', 'lens', 'cam'];
+  const built = {};
+  order.forEach(id => {
+    const r = BUILDERS[id](specs[id]);
+    built[id] = r;
+  });
+
+  /* 自下而上堆叠，算每层中心 y */
+  const pos = {};
+  let cursor = 0;
+  order.forEach(id => {
+    pos[id] = cursor + built[id].h / 2;
+    cursor += built[id].h + GAP;
+  });
+  const total = cursor - GAP;
+  const offset = -total / 2 + 0.1;
+
+  const widest = {ctrl: 1.42, light: (geo.light.radius || 0.7) + 0.2,
+                  lens: (geo.lens.d || 0.3) + 0.1, cam: (geo.cam.size[0] || 1.1) * 0.62};
+
+  order.forEach((id, i) => {
+    const item = built[id];
+    const g = item.group;
+    g.position.y = pos[id] + offset;
+    g.userData.pickId = id;
+    g.userData.assembledY = g.position.y;
+    g.userData.explodedY = g.position.y + (i - 1.5) * 0.46;
+    collectMats(g);
+
+    const rr = widest[id];
+    const ring = new T.Mesh(new T.TorusGeometry(rr, 0.007, 8, 72),
+      new T.MeshBasicMaterial({color:0x2FD3C5, transparent:true, opacity:0,
+        blending:T.AdditiveBlending, depthWrite:false}));
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = -item.h / 2 + 0.03;
+    g.add(ring);
+    g.userData.selRing = ring;
+
+    assembly.add(g);
+
+    const meta = (data.labels || []).find(x => x.id === id) || {};
+    const L = {
+      id, obj: g, y: g.position.y, ey: g.userData.explodedY,
+      name: meta.name || id, sub: meta.sub || '',
+    };
+    LAYERS.push(L);
+  });
+
+  /* 标签与引线 */
+  LAYERS.forEach(L => {
+    const sp = makeLabel(L.name, L.sub, '#2FD3C5');
+    sp.position.set(-1.62, L.obj.position.y, 0);
+    labelGroup.add(sp);
+    L.label = sp;
+
+    const line = new T.Line(
+      new T.BufferGeometry().setFromPoints([
+        new T.Vector3(-0.74, 0, 0),
+        new T.Vector3(-1.12, 0, 0)
+      ]),
+      new T.LineBasicMaterial({color:0x2FD3C5, transparent:true, opacity:0,
+        depthWrite:false})
+    );
+    line.position.y = L.obj.position.y;
+    labelGroup.add(line);
+    L.leader = line;
+  });
+
+  return total;
+}
+
+/* ==================================================================
+   5. 四个平台模块
+   ================================================================== */
+const FUNCS = [
+  {cn:'图像源',   en:'Image Source'},
+  {cn:'模板定位', en:'Template Matching'},
+  {cn:'直线查找', en:'Caliper'},
+  {cn:'构造交点', en:'Intersection'},
+  {cn:'点距测量', en:'Distance'},
+  {cn:'数据判定', en:'OK / NG'},
+  {cn:'结果输出', en:'TCP / IO'},
+];
+
+const PLATFORMS = [
+  {
+    id:'vm', name:'海康 VisionMaster', short:'海康 VM', hex:'#E4574C', col:0xE4574C,
+    fmt:'方案文件 + C# / C++ 二次开发 SDK',
+    desc:'图形化拖拽，算子覆盖最全，国内产线装机量最大',
+    nodes:['图像源','模板匹配','直线查找','交点创建','点到点距离','逻辑工具','发送数据'],
+    tip:'模块名取自公开文档常用叫法，不同版本可能略有差异'
+  },
+  {
+    id:'dh', name:'大恒图像', short:'大恒', hex:'#E8A33D', col:0xE8A33D,
+    fmt:'流程工程 + 相机 SDK（Galaxy 系列）',
+    desc:'相机自研，采集端稳定，适合自建检测工位',
+    nodes:['图像采集','模板匹配','直线检测','交点','距离测量','判断','通信输出'],
+    tip:'流程命名按通用功能对应，以实际版本为准'
+  },
+  {
+    id:'ly', name:'凌云光', short:'凌云', hex:'#6FA8FF', col:0x6FA8FF,
+    fmt:'流程工程 + 视觉平台工程文件',
+    desc:'平台级方案，偏整线集成与光学配套',
+    nodes:['图像输入','模板定位','直线查找','几何构造','距离','结果判定','IO 输出'],
+    tip:'节点名按功能对应，具体以所用平台版本为准'
+  },
+  {
+    id:'hc', name:'MVTec HALCON', short:'HALCON', hex:'#A78BFA', col:0xA78BFA,
+    fmt:'HDevelop 程序 .hdev / 导出 C# 代码',
+    desc:'算法库最底层，可精细控制，学习曲线最陡',
+    nodes:['read_image','find_shape_model','measure_pos','intersection_lines','distance_pp','if（阈值判定）','open_socket'],
+    tip:'此处直接给出算子名，可在 HDevelop 中检索'
+  },
+];
+
+const puckGroups = [];
+const SLOTS = [
+  {x:-1.80, y:-1.50, z:2.50},
+  {x:-0.60, y:-1.50, z:2.62},
+  {x: 0.60, y:-1.50, z:2.62},
+  {x: 1.80, y:-1.50, z:2.50},
+];
+
+/* 卡片正面：迷你 UI（名称 / 步骤条 / 提示） */
+function cardCanvas(P, idx){
+  const W = 512, H = 380;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgba(19,24,23,0.985)';
+  roundRect(g, 0, 0, W, H, 26); g.fill();
+
+  g.fillStyle = P.hex;
+  g.fillRect(24, 26, 40, 4);
+
+  g.textAlign = 'right'; g.textBaseline = 'top';
+  g.font = '500 21px "Segoe UI",sans-serif';
+  g.fillStyle = P.hex;
+  g.fillText('0' + (idx+1), W - 26, 20);
+  g.textAlign = 'left';
+
+  g.font = '500 52px "Microsoft YaHei","PingFang SC",sans-serif';
+  g.fillStyle = '#eef1ef';
+  g.fillText(P.short, 26, 40);
+
+  /* 步骤条：一眼看出有几步 */
+  const bw = 26, gap = 6, y0 = 122;
+  P.nodes.forEach((n, i) => {
+    const x = 24 + i * (bw + gap);
+    g.fillStyle = i === 0 ? P.hex : 'rgba(255,255,255,.26)';
+    roundRect(g, x, y0, bw, 6, 3); g.fill();
+  });
+
+  g.font = '400 20px "Microsoft YaHei",sans-serif';
+  g.fillStyle = 'rgba(255,255,255,.52)';
+  g.fillText(P.nodes.length + ' 个功能节点', 26, y0 + 20);
+
+  g.strokeStyle = 'rgba(255,255,255,.07)'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(22, H - 72); g.lineTo(W - 22, H - 72); g.stroke();
+
+  g.font = '400 23px "Microsoft YaHei",sans-serif';
+  g.fillStyle = 'rgba(255,255,255,.66)';
+  g.fillText('点击展开流程', 26, H - 54);
+
+  g.font = '400 24px "Segoe UI",sans-serif';
+  g.fillStyle = P.hex;
+  g.textAlign = 'right';
+  g.fillText('\u2192', W - 26, H - 56);
+  g.textAlign = 'left';
+
+  const t = new T.CanvasTexture(c);
+  if ('colorSpace' in t && T.SRGBColorSpace) t.colorSpace = T.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+PLATFORMS.forEach((P, i) => {
+  const g = new T.Group();
+  const slot = SLOTS[i];
+  g.userData.home = new T.Vector3(slot.x, slot.y, slot.z);
+  g.position.copy(g.userData.home);
+  g.userData.pickId = 'plat:' + P.id;
+  g.userData.platId = P.id;
+  g.userData.phase = i * 1.6;
+
+  /* 卡体 */
+  const body = new T.Mesh(new T.RoundedBoxGeometry(1.05, 0.78, 0.06, 4, 0.038),
+    new T.MeshStandardMaterial({color:0x151819, metalness:0.92, roughness:0.28,
+      transparent:true, opacity:1}));
+  g.add(body);
+
+  /* 正面 UI */
+  const face = new T.Mesh(new T.PlaneGeometry(0.995, 0.74),
+    new T.MeshBasicMaterial({map:cardCanvas(P, i), transparent:true, opacity:1}));
+  face.position.z = 0.038;
+  g.add(face);
+
+  /* 顶棱发光 */
+  const edge = new T.Mesh(new T.BoxGeometry(0.96, 0.01, 0.01),
+    new T.MeshBasicMaterial({color:P.col, transparent:true, opacity:0.9}));
+  edge.position.set(0, 0.393, 0.038);
+  g.add(edge);
+
+  /* 背后柔光 */
+  const glow = makeGlow(1.7, P.col, 0.13);
+  glow.position.z = -0.22;
+  g.add(glow);
+
+  /* 拾取代理 */
+  const proxy = new T.Mesh(new T.BoxGeometry(1.2, 0.9, 0.4),
+    new T.MeshBasicMaterial({transparent:true, opacity:0, depthWrite:false, colorWrite:false}));
+  g.add(proxy);
+
+  g.userData.body = body;
+  g.userData.face = face;
+  g.userData.edge = edge;
+  g.userData.glow = glow;
+
+  scene.add(g);
+  puckGroups.push(g);
+  P.obj = g;
+});
+
+/* 四张卡之间的通路示意 */
+(function links(){
+  const pts = [
+    new T.Vector3(-2.42, -1.50, 2.35), new T.Vector3(2.42, -1.50, 2.35)
+  ];
+  const geo = new T.BufferGeometry().setFromPoints(pts);
+  const line = new T.Line(geo, new T.LineBasicMaterial({
+    color:0x2a4640, transparent:true, opacity:0.55}));
+  line.position.z = 0;
+  scene.add(line);
+  window.__links = line;
+})();
+
+/* ==================================================================
+   6. 流程面板（canvas 画节点链 → 贴到平面）
+   ================================================================== */
+function roundRect(g, x, y, w, h, r){
+  g.beginPath();
+  g.moveTo(x+r, y);
+  g.arcTo(x+w, y, x+w, y+h, r);
+  g.arcTo(x+w, y+h, x, y+h, r);
+  g.arcTo(x, y+h, x, y, r);
+  g.arcTo(x, y, x+w, y, r);
+  g.closePath();
+}
+
+function flowCanvas(P){
+  const W = 880, H = 1200;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+
+  g.fillStyle = '#0a0e0d';
+  roundRect(g, 0, 0, W, H, 26); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.10)'; g.lineWidth = 2;
+  roundRect(g, 1, 1, W-2, H-2, 25); g.stroke();
+
+  /* 顶部色条 */
+  g.save();
+  roundRect(g, 0, 0, W, 10, 6); g.clip();
+  g.fillStyle = P.hex; g.fillRect(0, 0, W, 10);
+  g.restore();
+
+  /* 标题 */
+  g.textBaseline = 'top';
+  g.font = '500 40px "Microsoft YaHei","PingFang SC",sans-serif';
+  g.fillStyle = '#f0f2f0';
+  g.fillText(P.name, 46, 54);
+
+  g.font = '400 23px "Microsoft YaHei",sans-serif';
+  g.fillStyle = 'rgba(255,255,255,.52)';
+  g.fillText('流程作业指导书 · ' + P.nodes.length + ' 个功能节点', 46, 104);
+
+  g.strokeStyle = 'rgba(255,255,255,.08)'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(46, 148); g.lineTo(W-46, 148); g.stroke();
+
+  /* 节点链 */
+  const x0 = 46, boxW = W - 92, boxH = 92, gap = 128, top = 176;
+  P.nodes.forEach((n, i) => {
+    const y = top + i*gap;
+
+    if (i > 0){
+      const cy = y - gap + boxH;
+      g.strokeStyle = 'rgba(47,211,197,.26)'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(x0 + 30, cy + 6); g.lineTo(x0 + 30, y - 10); g.stroke();
+      g.fillStyle = 'rgba(47,211,197,.55)';
+      g.beginPath();
+      g.moveTo(x0 + 30, y - 2);
+      g.lineTo(x0 + 24, y - 13);
+      g.lineTo(x0 + 36, y - 13);
+      g.closePath(); g.fill();
+    }
+
+    g.fillStyle = 'rgba(255,255,255,.035)';
+    roundRect(g, x0, y, boxW, boxH, 12); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.075)'; g.lineWidth = 1; g.stroke();
+
+    /* 序号方块 */
+    g.fillStyle = P.hex;
+    roundRect(g, x0 + 14, y + 28, 34, 34, 8); g.fill();
+    g.fillStyle = '#0a0e0d';
+    g.font = '600 22px "Segoe UI",sans-serif';
+    g.textAlign = 'center';
+    g.fillText(String(i+1), x0 + 31, y + 35);
+    g.textAlign = 'left';
+
+    /* 节点名 */
+    g.font = '500 30px "Microsoft YaHei","PingFang SC",sans-serif';
+    g.fillStyle = '#eef1ef';
+    g.fillText(n, x0 + 64, y + 24);
+
+    /* 通用功能 */
+    g.font = '400 19px "Microsoft YaHei",sans-serif';
+    g.fillStyle = 'rgba(255,255,255,.46)';
+    g.fillText(FUNCS[i].cn + '  ·  ' + FUNCS[i].en, x0 + 64, y + 62);
+  });
+
+  /* 底部说明 */
+  const by = top + P.nodes.length*gap + 4;
+  g.strokeStyle = 'rgba(255,255,255,.07)'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(46, by); g.lineTo(W-46, by); g.stroke();
+
+  g.font = '400 20px "Microsoft YaHei",sans-serif';
+  g.fillStyle = 'rgba(255,255,255,.46)';
+  wrapText(g, '节点名为该平台常用叫法，同名功能按语义对应；参数值来自选型计算，与平台无关。',
+           46, by + 22, W - 92, 31);
+
+  const tex = new T.CanvasTexture(c);
+  if ('colorSpace' in tex && T.SRGBColorSpace) tex.colorSpace = T.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+function wrapText(g, text, x, y, maxW, lh){
+  let line = '';
+  for (let i = 0; i < text.length; i++){
+    const test = line + text[i];
+    if (g.measureText(test).width > maxW && line){
+      g.fillText(line, x, y); line = text[i]; y += lh;
+    } else line = test;
+  }
+  if (line) g.fillText(line, x, y);
+}
+
+const flowPanel = new T.Mesh(
+  new T.PlaneGeometry(1.58, 2.155),
+  new T.MeshBasicMaterial({transparent:true, opacity:0, depthWrite:false, depthTest:false})
+);
+flowPanel.position.set(0, 1.02, 4.55);
+flowPanel.scale.setScalar(0.82);
+flowPanel.visible = false;
+flowPanel.raycast = function(){};
+flowPanel.renderOrder = 20;
+scene.add(flowPanel);
+
+/* 面板后面的柔光，让它不像贴纸 */
+const panelGlow = makeGlow(3.6, 0x2FD3C5, 0.10);
+panelGlow.position.set(0, 1.02, 4.4);
+panelGlow.visible = false;
+panelGlow.renderOrder = 19;
+scene.add(panelGlow);
+
+/* ==================================================================
+   7. 相机控制（自写轨道控制，不依赖 addon）
+   ================================================================== */
+const orbit = {
+  az: 0, pol: 1.25, rad: 8.1,
+  taz: 0, tpol: 1.25, trad: 8.1,
+  ty: -0.52, tty: -0.52
+};
+function applyCamera(){
+  orbit.az  += (orbit.taz  - orbit.az)  * 0.12;
+  orbit.pol += (orbit.tpol - orbit.pol) * 0.12;
+  orbit.rad += (orbit.trad - orbit.rad) * 0.12;
+  orbit.ty  += (orbit.tty  - orbit.ty)  * 0.12;
+  const sp = Math.sin(orbit.pol), cp = Math.cos(orbit.pol);
+  camera.position.set(
+    orbit.rad * sp * Math.sin(orbit.az),
+    orbit.rad * cp + orbit.ty,
+    orbit.rad * sp * Math.cos(orbit.az)
+  );
+  camera.lookAt(0, orbit.ty, 0);
+}
+applyCamera();
+
+/* ==================================================================
+   8. 交互
+   ================================================================== */
+const ray = new T.Raycaster();
+const ndc = new T.Vector2();
+let dragging = false, moved = 0, lastX = 0, lastY = 0;
+let hoverId = null;
+let selected = null;      /* {type:'layer'|'plat', id} */
+let explodeAll = false;
+let flowOpenAt = -99;   /* 面板展开时刻，用真实时间驱动，避免低帧率下淡入过慢 */
+
+function pickAt(clientX, clientY){
+  ndc.x = (clientX / window.innerWidth) * 2 - 1;
+  ndc.y = -(clientY / window.innerHeight) * 2 + 1;
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObjects([assembly, ...puckGroups], true);
+  for (const h of hits){
+    let o = h.object;
+    while (o){
+      if (o.userData && o.userData.pickId){
+        if (flowPanel.visible && o === flowPanel) return null;
+        return o.userData.pickId;
+      }
+      o = o.parent;
+    }
+  }
+  return null;
+}
+
+canvas.addEventListener('pointerdown', e => {
+  dragging = true; moved = 0;
+  lastX = e.clientX; lastY = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => {
+  if (dragging){
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    moved += Math.abs(dx) + Math.abs(dy);
+    lastX = e.clientX; lastY = e.clientY;
+    orbit.taz -= dx * 0.0052;
+    orbit.tpol = Math.min(1.46, Math.max(0.16, orbit.tpol - dy * 0.0042));
+  } else {
+    const id = pickAt(e.clientX, e.clientY);
+    if (id !== hoverId){
+      hoverId = id;
+      canvas.style.cursor = id ? 'pointer' : 'grab';
+    }
+  }
+});
+canvas.addEventListener('pointerup', e => {
+  if (dragging && moved < 6){
+    const id = pickAt(e.clientX, e.clientY);
+    if (id) select(id); else if (selected) select(null);
+  }
+  dragging = false;
+});
+canvas.addEventListener('pointerleave', () => { dragging = false; });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  orbit.trad = Math.min(16, Math.max(4.2, orbit.trad + e.deltaY * 0.0026));
+}, {passive:false});
+canvas.addEventListener('dblclick', () => {
+  orbit.taz = 0; orbit.tpol = 1.25; orbit.trad = 8.1; orbit.tty = -0.52;
+  select(null); explodeAll = false; syncExplodeBtn();
+});
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space'){ e.preventDefault(); toggleExplodeAll(); }
+  if (e.code === 'Escape'){ select(null); }
+});
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  if (composer) composer.setSize(window.innerWidth, window.innerHeight);
+});
+
+function select(id){
+  if (id === null){
+    selected = null;
+    flowPanel.visible = false;
+    flowPanel.material.opacity = 0;
+    flowPanel.scale.setScalar(0.82);
+    panelGlow.visible = false;
+    renderRight();
+    renderLists();
+    flashHint('');
+    return;
+  }
+  const platId = id.startsWith('plat:') ? id.slice(5) : null;
+  if (platId){
+    selected = {type:'plat', id:platId};
+    const P = PLATFORMS.find(p => p.id === platId);
+    if (flowPanel.material.map) flowPanel.material.map.dispose();
+    flowPanel.material.map = flowCanvas(P);
+    flowPanel.material.needsUpdate = true;
+    flowPanel.material.color.setHex(0xffffff);
+    flowPanel.visible = true;
+    flowPanel.scale.setScalar(0.86);
+    flowOpenAt = clock.elapsedTime;
+    panelGlow.material.color.setHex(P.col);
+    panelGlow.visible = true;
+    flashHint('已展开 ' + P.short + ' 的流程节点链');
+  } else {
+    selected = {type:'layer', id:id};
+    flowPanel.visible = false;
+    flowPanel.material.opacity = 0;
+    panelGlow.visible = false;
+    flashHint('部件已拆解，右侧查看参数');
+  }
+  renderRight();
+  renderLists();
+}
+
+let hintTimer = null;
+function flashHint(text){
+  const el = document.getElementById('hint');
+  el.textContent = text;
+  el.classList.toggle('show', !!text);
+  clearTimeout(hintTimer);
+  if (text) hintTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+function toggleExplodeAll(){
+  explodeAll = !explodeAll;
+  syncExplodeBtn();
+  flashHint(explodeAll ? '四层已全部展开' : '已回到装配位置');
+}
+function syncExplodeBtn(){
+  document.getElementById('btnExplode').classList.toggle('on', explodeAll);
+  document.getElementById('btnExplode').textContent = explodeAll ? '合拢装配' : '全部拆解';
+}
+document.getElementById('btnExplode').onclick = toggleExplodeAll;
+document.getElementById('btnReset').onclick = () => {
+  orbit.taz = 0; orbit.tpol = 1.25; orbit.trad = 8.1; orbit.tty = -0.52;
+  select(null); explodeAll = false; syncExplodeBtn();
+};
+
+/* ==================================================================
+   9. UI 渲染
+   ================================================================== */
+let SCENE = null;   /* 当前场景数据，来自 /api/scene */
+let SCENE_SRC = '';  /* 参数来源说明：预设 / 图纸 / URL */
+
+function renderLists(){
+  const lp = document.getElementById('layerList');
+  lp.innerHTML = LAYERS.map((L, i) => {
+    const on = selected && selected.type === 'layer' && selected.id === L.id;
+    return '<div class="item' + (on ? ' active' : '') + '" data-pick="' + L.id + '">' +
+      '<div class="sw" style="background:#2FD3C5"></div>' +
+      '<div class="tx"><div class="nm">' + L.name + '</div>' +
+      '<div class="sub">' + L.sub + '</div></div>' +
+      '<div class="k">0' + (i+1) + '</div></div>';
+  }).join('');
+
+  const pp = document.getElementById('platList');
+  pp.innerHTML = PLATFORMS.map(P => {
+    const on = selected && selected.type === 'plat' && selected.id === P.id;
+    return '<div class="item' + (on ? ' active' : '') + '" data-pick="plat:' + P.id + '">' +
+      '<div class="sw" style="background:' + P.hex + '"></div>' +
+      '<div class="tx"><div class="nm">' + P.name + '</div>' +
+      '<div class="sub">' + P.nodes.length + ' 个节点 · 点击展开</div></div></div>';
+  }).join('');
+
+  document.querySelectorAll('.item').forEach(el => {
+    el.onclick = () => select(el.dataset.pick);
+  });
+}
+
+function esc(t){ return String(t === undefined ? '' : t).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function renderRight(){
+  const el = document.getElementById('rightPanel');
+  if (!SCENE){ el.innerHTML = '<div class="empty">正在按参数生成机台…</div>'; return; }
+
+  if (!selected){
+    const camRow = SCENE.panels.cam.rows[0];
+    const ctrlRow = SCENE.panels.ctrl.rows[1];
+    el.innerHTML =
+      '<div class="rhead"><div class="eyebrow">Current Build</div>' +
+      '<h2>' + esc(SCENE.preset) + '</h2>' +
+      '<div class="desc">这台机器的每一层都是算出来的。换一个场景，机身形态、光源形态、通道数都会跟着变。</div></div>' +
+      '<div class="stat">' +
+        '<div><div class="k">机台形态</div><div class="v sm">' + (SCENE.scan === 'line' ? '线阵' : '面阵') + '</div></div>' +
+        '<div><div class="k">' + esc(camRow[0]) + '</div><div class="v sm">' + esc(camRow[1]) + '</div></div>' +
+        '<div><div class="k">光源系列</div><div class="v sm">' + esc(SCENE.geometry.light.series) + '</div></div>' +
+        '<div><div class="k">控制器通道</div><div class="v sm">' + esc(ctrlRow[1]) + '</div></div>' +
+      '</div>' +
+      '<div class="legend">' +
+        ['拍照 ' + SCENE.inputs.fov[0] + '×' + SCENE.inputs.fov[1] + ' mm',
+         '精度 ' + SCENE.inputs.accuracy + ' mm',
+         'WD ' + SCENE.inputs.wd + ' mm'].map(t => '<span class="chip">' + t + '</span>').join('') +
+      '</div>' +
+      (SCENE_SRC ? '<div class="note"><b>参数来源</b><br>' + esc(SCENE_SRC) + '</div>' : '') +
+      '<div class="note"><b>切换场景</b><br>点上方预设，或把产品图纸拖进左侧。四组计算与三维模型同源，不会出现"图是一套、数是一套"。</div>' +
+      SCENE.notes.map(n => '<div class="note">' + esc(n) + '</div>').join('');
+    return;
+  }
+
+  if (selected.type === 'layer'){
+    const info = SCENE.panels[selected.id];
+    if (!info){ el.innerHTML = '<div class="empty">无数据</div>'; return; }
+    const steps = (SCENE.steps && SCENE.steps[selected.id]) || [];
+    el.innerHTML =
+      '<div class="rhead"><div class="eyebrow">Component</div>' +
+      '<h2>' + esc(info.name) + '</h2>' +
+      '<div class="desc">' + esc(info.sub) + '</div></div>' +
+      '<table><thead><tr><th style="width:72px">参数</th><th style="width:104px">值</th><th>依据</th></tr></thead><tbody>' +
+      info.rows.map(r => '<tr><td>' + esc(r[0]) + '</td><td class="mono">' + esc(r[1]) + '</td>' +
+        '<td class="dim">' + esc(r[2]) + '</td></tr>').join('') +
+      '</tbody></table>' +
+      (steps.length
+        ? '<details open><summary>计算过程 ' + steps.length + ' 步</summary>' +
+          '<table><tbody>' + steps.map((t, i) => '<tr><td>' + (i+1) + '</td><td class="dim">' + esc(t) + '</td></tr>').join('') +
+          '</tbody></table></details>'
+        : '') +
+      '<div class="note">参数由视野、精度、工作距离推出来，换一个数会连锁变动——单看某一项没有意义。</div>';
+    return;
+  }
+
+  const P = PLATFORMS.find(p => p.id === selected.id);
+  el.innerHTML =
+    '<div class="rhead"><div class="eyebrow" style="color:' + P.hex + '">Export Target</div>' +
+    '<h2>' + P.name + '</h2>' +
+    '<div class="desc">' + P.desc + '</div></div>' +
+    '<table><thead><tr><th style="width:80px">通用功能</th><th>该平台节点</th></tr></thead><tbody>' +
+    P.nodes.map((n, i) => '<tr><td>' + FUNCS[i].cn + '</td>' +
+      '<td class="mono" style="color:' + P.hex + '">' + n + '</td></tr>').join('') +
+    '</tbody></table>' +
+    '<div class="note"><b>导出物</b><br>' + P.fmt + '</div>' +
+    '<div class="note"><b>边界</b><br>' + P.tip +
+    '。本页做的是命名对照，不声称可在平台之间直接互转工程文件。</div>';
+}
+
+/* ==================================================================
+   10. 每帧更新
+   ================================================================== */
+const clock = new T.Clock();
+let composer = null;
+
+(function initComposer(){
+  if (!T.EffectComposer || !T.RenderPass || !T.UnrealBloomPass) return;
+  try {
+    composer = new T.EffectComposer(renderer);
+    composer.addPass(new T.RenderPass(scene, camera));
+    const bloom = new T.UnrealBloomPass(
+      new T.Vector2(window.innerWidth, window.innerHeight), 0.36, 0.7, 0.86);
+    composer.addPass(bloom);
+    if (T.OutputPass) composer.addPass(new T.OutputPass());
+  } catch (err){
+    composer = null;
+  }
+})();
+
+const tmpV = new T.Vector3();
+const lookM = new T.Matrix4();
+const qTarget = new T.Quaternion();
+const UP = new T.Vector3(0, 1, 0);
+function lerp(a, b, t){ return a + (b - a) * t; }
+
+function tick(){
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+  const k = 1 - Math.pow(0.0004, dt);   /* 帧率无关的缓动 */
+
+  applyCamera();
+
+  /* --- 装配体四层 --- */
+  LAYERS.forEach((L, i) => {
+    let targetY = explodeAll ? L.ey : L.y;
+    let targetZ = 0;
+    let targetX = 0;
+
+    if (selected && selected.type === 'layer' && selected.id === L.id){
+      targetY += 0.38;
+      targetZ = 0.35;
+    }
+    L.obj.position.y = lerp(L.obj.position.y, targetY, k);
+    L.obj.position.z = lerp(L.obj.position.z, targetZ, k);
+    L.obj.position.x = lerp(L.obj.position.x, targetX, k);
+
+    const on = (selected && selected.type === 'layer' && selected.id === L.id);
+    const hover = (hoverId === L.id);
+    const glow = on ? 1 : (hover ? 0.55 : 0);
+    (L.obj.userData.mats || []).forEach(mm => {
+      const base = mm.userData.baseEm !== undefined ? mm.userData.baseEm : 0x000000;
+      if (base === 0x2FD3C5) { /* 本来就发光的保留 */
+        mm.emissiveIntensity = mm.userData.baseEmI || 1;
+      } else {
+        mm.emissive.setHex(glow > 0 ? 0x2FD3C5 : base);
+        mm.emissiveIntensity = lerp(mm.emissiveIntensity || 0, glow * 0.16, k);
+      }
+    });
+
+    const ringOn = (selected && selected.type === 'layer' && selected.id === L.id) ? 0.95
+                 : (hoverId === L.id ? 0.35 : 0);
+    L.obj.userData.selRing.material.opacity =
+      lerp(L.obj.userData.selRing.material.opacity, ringOn, k * 1.4);
+    L.obj.userData.selRing.rotation.z = t * 0.6;
+
+    /* 标签跟随 */
+    const worldY = L.obj.position.y + 0.05;
+    L.label.position.y = lerp(L.label.position.y, worldY, k);
+    const labelTarget = (selected && selected.type === 'plat') ? 0 : 1;
+    L.label.material.opacity = lerp(L.label.material.opacity, labelTarget, k * 1.5);
+    L.leader.position.y = lerp(L.leader.position.y, L.obj.position.y, k);
+    L.leader.material.opacity = lerp(L.leader.material.opacity,
+      labelTarget * (on ? 0.9 : 0.3), k * 0.6);
+  });
+
+  /* --- 平台卡片 --- */
+  const platOpen = (selected && selected.type === 'plat');
+  puckGroups.forEach((g, i) => {
+    const P = PLATFORMS[i];
+    const isSel = platOpen && selected.id === P.id;
+    const isHover = hoverId === ('plat:' + P.id);
+    const bob = Math.sin(t * 1.15 + g.userData.phase) * 0.032;
+    const home = g.userData.home;
+
+    let tx = home.x, ty = home.y + bob, tz = home.z, sc = 1;
+    if (isSel){ ty = home.y - 0.26 + bob * 0.4; tz = home.z - 0.5; sc = 0.72; }
+    else if (platOpen){ tx = home.x * 1.12; ty = home.y - 0.18 + bob; sc = 0.8; }
+    else if (isHover){ ty += 0.06; sc = 1.05; }
+
+    g.position.x = lerp(g.position.x, tx, k);
+    g.position.y = lerp(g.position.y, ty, k);
+    g.position.z = lerp(g.position.z, tz, k);
+    g.scale.setScalar(lerp(g.scale.x, sc, k));
+
+    /* 完全正对相机：四张小 UI 必须能读，不能靠透视猜 */
+    lookM.lookAt(camera.position, g.position, UP);
+    qTarget.setFromRotationMatrix(lookM);
+    g.quaternion.slerp(qTarget, Math.min(1, k * 0.9));
+
+    /* 展开时其余卡片压暗，让面板成为唯一焦点 */
+    const dim = (platOpen && !isSel) ? 0.34 : 1;
+    g.userData.face.material.opacity = lerp(g.userData.face.material.opacity, dim, k * 0.7);
+    g.userData.body.material.opacity = lerp(g.userData.body.material.opacity, dim, k * 0.7);
+    g.userData.edge.material.opacity = lerp(g.userData.edge.material.opacity,
+      dim * (isHover ? 1 : 0.85), k * 0.7);
+    g.userData.glow.material.opacity = lerp(g.userData.glow.material.opacity,
+      (isHover ? 0.30 : 0.13) * dim, k * 0.7);
+  });
+
+  /* --- 流程面板 --- */
+  if (flowPanel.visible){
+    flowPanel.quaternion.copy(camera.quaternion);
+    const e = Math.min(1, Math.max(0, (t - flowOpenAt) / 0.42));
+    const ea = 1 - Math.pow(1 - e, 3);              /* easeOutCubic */
+    flowPanel.material.opacity = ea;
+    flowPanel.scale.setScalar(0.86 + 0.14 * ea);
+    panelGlow.material.opacity = (0.09 + 0.03*Math.sin(t*1.8)) * ea;
+  } else if (flowPanel.material.opacity > 0.001){
+    flowPanel.material.opacity = lerp(flowPanel.material.opacity, 0, k);
+    if (flowPanel.material.opacity < 0.01) flowPanel.visible = false;
+  }
+
+  /* 核心点光呼吸 */
+  core.intensity = 9 + Math.sin(t * 1.6) * 3;
+
+  if (composer) composer.render();
+  else renderer.render(scene, camera);
+
+  requestAnimationFrame(tick);
+}
+
+/* 拖入产品图纸：解析出的视野/精度/任务直接驱动三维重建 */
+const dzEl = document.getElementById('dz');
+const dzResult = document.getElementById('dzr');
+const fileInput = document.createElement('input');
+fileInput.type = 'file';
+fileInput.accept = '.pdf,.txt';
+fileInput.style.display = 'none';
+document.body.appendChild(fileInput);
+
+dzEl.onclick = () => fileInput.click();
+fileInput.onchange = e => { if (e.target.files && e.target.files[0]) useDrawing(e.target.files[0]); };
+['dragenter', 'dragover'].forEach(ev => dzEl.addEventListener(ev, e => {
+  e.preventDefault(); dzEl.classList.add('over');
+}));
+['dragleave', 'drop'].forEach(ev => dzEl.addEventListener(ev, e => {
+  e.preventDefault(); dzEl.classList.remove('over');
+}));
+dzEl.addEventListener('drop', e => {
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) useDrawing(f);
+});
+
+async function useSampleDrawing(){
+  dzResult.classList.add('on');
+  dzResult.textContent = '正在解析示例图纸…';
+  try{
+    const d = await (await fetch('/api/drawing-sample')).json();
+    if (!d.ok) throw new Error(d.error || '解析失败');
+    currentPreset = null;
+    buildPresets();
+    await loadScene({
+      task: d.task, accuracy: d.accuracy,
+      fov: d.fov_w + 'x' + d.fov_h, wd: 160
+    }, '示例图纸「' + (d.sample || '') + '」· 置信度 ' + d.confidence);
+    dzResult.innerHTML =
+      '视野 <b>' + d.fov_w + '×' + d.fov_h + '</b> mm　精度 <b>' + d.accuracy +
+      '</b> mm　任务 <b>' + d.task + '</b><br>工作距离图纸给不出，按 160 mm 装配';
+  }catch(e){
+    dzResult.textContent = '解析失败：' + e.message;
+  }
+}
+document.getElementById('dzSample').onclick = e => { e.stopPropagation(); useSampleDrawing(); };
+
+async function useDrawing(file){
+  dzResult.classList.add('on');
+  dzResult.textContent = '正在解析图纸（首次约 5~10 秒）…';
+  try{
+    const buf = await file.arrayBuffer();
+    let body;
+    if (/\.pdf$/i.test(file.name)){
+      const bytes = new Uint8Array(buf);
+      let bin = '';
+      const CH = 8192;
+      for (let i = 0; i < bytes.length; i += CH){
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+      }
+      body = {pdf: 'data:application/pdf;base64,' + btoa(bin)};
+    } else {
+      body = {text: new TextDecoder('utf-8').decode(buf)};
+    }
+    const r = await fetch('/api/drawing', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || '解析失败');
+
+    currentPreset = null;
+    buildPresets();
+    await loadScene({
+      task: d.task,
+      accuracy: d.accuracy,
+      fov: d.fov_w + 'x' + d.fov_h,
+      wd: 160
+    }, '图纸「' + file.name + '」· 置信度 ' + d.confidence);
+
+    dzResult.innerHTML =
+      '视野 <b>' + d.fov_w + '×' + d.fov_h + '</b> mm　精度 <b>' + d.accuracy +
+      '</b> mm　任务 <b>' + d.task + '</b><br>' +
+      '工作距离图纸给不出，按 160 mm 装配，可在参数里改';
+  }catch(e){
+    dzResult.textContent = '解析失败：' + e.message;
+  }
+}
+
+/* 预设：每个按钮换一台机器，不是换一段文案 */
+const PRESETS = [
+  {key:'back', label:'尺寸 · 背光 · 高像素',
+   q:{task:'尺寸测量', accuracy:0.01, fov:'12x10', wd:130}},
+  {key:'ring', label:'划痕 · 环光 · 面阵',
+   q:{task:'表面划痕', accuracy:0.05, fov:'30x22', wd:220}},
+  {key:'coax', label:'高反光 · 同轴',
+   q:{task:'高反光金属', accuracy:0.05, fov:'40x33', wd:300}},
+  {key:'dome', label:'曲面 · 圆顶',
+   q:{task:'曲面圆柱', accuracy:0.1, fov:'60x50', wd:400}},
+  {key:'line', label:'飞拍 · 线阵 8K',
+   q:{task:'表面划痕', accuracy:0.05, fov:'80x60', wd:300, speed:300, scan:'line'}},
+];
+let currentPreset = 'back';
+
+function buildPresets(){
+  const box = document.getElementById('presets');
+  box.innerHTML = PRESETS.map(p =>
+    '<button class="pchip' + (p.key === currentPreset ? ' on' : '') + '" data-key="' + p.key + '">' +
+    p.label + '</button>').join('');
+  box.querySelectorAll('.pchip').forEach(btn => {
+    btn.onclick = () => {
+      const p = PRESETS.find(x => x.key === btn.dataset.key);
+      currentPreset = p.key;
+      buildPresets();
+      loadScene(p.q);
+    };
+  });
+}
+
+async function loadScene(q, src){
+  SCENE_SRC = src || '';
+  const el = document.getElementById('rightPanel');
+  el.innerHTML = '<div class="empty">正在按参数生成机台…</div>';
+  try{
+    const r = await fetch('/api/scene?' + new URLSearchParams(q));
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || '接口返回异常');
+    SCENE = d;
+    selected = null;
+    flowPanel.visible = false;
+    flowPanel.material.opacity = 0;
+    panelGlow.visible = false;
+    explodeAll = false;
+    syncExplodeBtn();
+    const total = buildAssembly(d);
+    orbit.trad = Math.max(7.2, Math.min(12, 6.8 + total * 0.5));
+    orbit.tty = -0.1 - total * 0.16;
+    renderLists();
+    renderRight();
+    flashHint(d.preset);
+
+    /* 深链：#vm 开平台，#cam 选层，#explode 全拆 */
+    const h = (location.hash || '').replace('#', '').trim();
+    if (h === 'explode'){ explodeAll = true; syncExplodeBtn(); }
+    else if (PLATFORMS.some(x => x.id === h)) select('plat:' + h);
+    else if (LAYERS.some(l => l.id === h)) select(h);
+  }catch(e){
+    el.innerHTML = '<div class="err">场景加载失败：' + esc(e.message) + '</div>';
+  }
+}
+
+/* 启动 */
+const qs = new URLSearchParams(location.search);
+const pv = qs.get('preset');
+const qTask = qs.get('task');
+if (qTask) currentPreset = null;
+else if (pv && PRESETS.some(x => x.key === pv)) currentPreset = pv;
+
+const initQ = qTask
+  ? {task: qTask,
+     accuracy: qs.get('accuracy') || 0.05,
+     fov: qs.get('fov') || '15x12',
+     wd: qs.get('wd') || 160,
+     speed: qs.get('speed') || 0,
+     scan: qs.get('scan') || 'area'}
+  : (PRESETS.find(x => x.key === currentPreset) || PRESETS[0]).q;
+
+buildPresets();
+renderLists();
+renderRight();
+loadScene(initQ, qTask ? '主界面当前参数（含图纸反推）' : '预设');
+if (qs.get('sample') === '1') setTimeout(useSampleDrawing, 500);
+setTimeout(() => flashHint('换上方预设，同一套引擎会生成另一台机器'), 1400);
+syncExplodeBtn();
+tick();
+</script>
+</body>
+</html>
