@@ -32,6 +32,7 @@ from core.lens import select_lens
 from core.light import recommend_light
 from core.controller import select_controller
 from core.validate import validate
+from core.remedy import attach_remedies
 from core.report import build_html
 from core.image_diag import diagnose, ImageDiagError
 from core.drawing import parse_drawing
@@ -173,6 +174,9 @@ def compute(payload: dict) -> dict:
 
     cam = select_camera(fov_w=fov_w, fov_h=fov_h, accuracy=accuracy,
                         moving=moving, speed=speed, need_color=need_color)
+    # 超规格时相机按多拍拆分：镜头/光源/自检改用单幅视野
+    if cam.fov_shot:
+        fov_w, fov_h = cam.fov_shot
     lens = select_lens(sensor_w=cam.sensor_w, sensor_h=cam.sensor_h,
                        fov_w=fov_w, fov_h=fov_h, wd=wd, pixel_um=cam.pixel_um,
                        need_precision_measure=(task == "尺寸测量"),
@@ -186,6 +190,10 @@ def compute(payload: dict) -> dict:
                    accuracy=accuracy, height_variation=height_var,
                    moving=moving, speed=speed, fov_w=fov_w, fov_h=fov_h,
                    wd_expect=wd)
+    attach_remedies(val, cam, lens, light, ctrl,
+                    accuracy=accuracy, height_variation=height_var,
+                    moving=moving, speed=speed, fov_w=fov_w, fov_h=fov_h,
+                    wd_expect=wd)
 
     # 流程作业指导书（通用节点链，不绑软件）
     proc = build_procedure(
@@ -225,6 +233,8 @@ def compute(payload: dict) -> dict:
             "interface": cam.interface, "mount": cam.mount, "depth": cam.pixel_depth,
             "exposure": (round(cam.exposure_max_us, 1) if cam.exposure_max_us else None),
             "fps": (round(cam.fps_min, 2) if cam.fps_min else None),
+            "shots_w": cam.shots_w, "shots_h": cam.shots_h,
+            "fov_shot": (list(cam.fov_shot) if cam.fov_shot else None),
             "steps": cam.steps,
         },
         "lens": {
@@ -256,7 +266,8 @@ def compute(payload: dict) -> dict:
             "pass": sum(1 for c in val.checks if c.status == "pass"),
             "warn": val.warn_count, "fail": val.fail_count,
             "checks": [{"name": c.name, "status": c.status,
-                        "detail": c.detail, "rule": c.rule} for c in val.checks],
+                        "detail": c.detail, "rule": c.rule,
+                        "remedies": c.remedies} for c in val.checks],
         },
         "procedure": [{"no": x.no, "node": x.node, "params": x.params, "note": x.note} for x in proc],
         "diag": ({

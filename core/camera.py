@@ -55,6 +55,10 @@ class CameraSpec:
     scan: str = "area"                 # area / line
     line_rate_hz: float | None = None  # 线阵行频
     data_rate_mbps: float | None = None
+    shots_w: int = 1                   # 多拍：横向幅数（超规格拆分时 > 1）
+    shots_h: int = 1                   # 多拍：纵向幅数
+    fov_shot: tuple | None = None      # 多拍：单幅视野 (w, h) mm，None 表示单幅即可覆盖
+    fov_full: tuple | None = None      # 有效全视野（含余量），多拍时用于覆盖校验
     steps: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
 
@@ -126,28 +130,65 @@ def select_camera(fov_w: float, fov_h: float, accuracy: float,
 
     # --- 3. 选档位：第一个宽高都不小于需求的档位 ---
     chosen = None
-    for mp, w, h, name, sw, sh in SENSOR_TABLE:
-        if w >= w_feat and h >= h_feat:
-            chosen = (mp, w, h, name, sw, sh)
+    for tier in SENSOR_TABLE:
+        if tier[1] >= w_feat and tier[2] >= h_feat:
+            chosen = tier
             break
+
+    shots_w, shots_h = 1, 1
+    fov_shot = None
+    fov_full = (fov_w_eff, fov_h_eff)   # 原始有效全视野（多拍覆盖校验用）
     if chosen is None:
-        mp, w, h, name, sw, sh = SENSOR_TABLE[-1]
-        chosen = (mp, w, h, name, sw, sh)
-        warnings.append(
-            f"需求 {w_feat}×{h_feat} 超过 25MP 档位，需拼接或改线阵，当前按最高档给出"
+        # 需求超过所有面阵档位。旧做法是硬给最高档 + 一句"需拼接"，
+        # 输出的方案当场就知道不达标；这里改为量化拆分：
+        #   单幅视野 = 档位分辨率 × 精度 ÷ 每缺陷像素（与单相机选择同一判据）
+        #   拆分幅数 = ceil(全视野 ÷ 单幅视野)，取总幅数最少的档位
+        best = None
+        for tier in SENSOR_TABLE:
+            mp, w, h, name, sw, sh = tier
+            fsw = w * accuracy / feature_px
+            fsh = h * accuracy / feature_px
+            n_w = _ceil_div(fov_w_eff, fsw)
+            n_h = _ceil_div(fov_h_eff, fsh)
+            total = n_w * n_h
+            if best is None or total < best[0]:
+                best = (total, n_w, n_h, fsw, fsh, tier)
+        total, shots_w, shots_h, fsw, fsh, (mp, w, h, name, sw, sh) = best
+        fov_shot = (fsw, fsh)
+        max_tier = SENSOR_TABLE[-1]
+        steps.append(
+            f"需求 {w_feat}×{h_feat} px 超过最大面阵档位"
+            f"（{max_tier[0]:g}MP {max_tier[1]}×{max_tier[2]}），单相机无法覆盖"
         )
-    mp, w, h, name, sw, sh = chosen
-    steps.append(
-        f"取满足需求的最小档位：{mp:g} MP（{w}×{h}，靶面 {name} {sw}×{sh} mm）"
-    )
+        steps.append(
+            f"改按多拍拆分：单幅视野 = 档位分辨率×精度÷{feature_px}（每缺陷像素）"
+            f"= {w}×{accuracy:g}÷{feature_px} = {fsw:.2f}×{fsh:.2f} mm"
+        )
+        steps.append(
+            f"拆分幅数 = ceil(视野÷单幅) = {shots_w}×{shots_h}，共 {total} 幅"
+            f"（机械位移逐幅拍摄或多相机分区，每幅参数一致）"
+        )
+        if total > 16:
+            warnings.append(
+                f"拆分幅数 {total} 偏多：若工件可连续运动，线阵（scan='line'）是更常规的路径；"
+                f"或重新评估精度需求——精度放宽一倍，幅数约降至四分之一"
+            )
+        # 后续计算（镜头/光源/自检）一律按单幅视野进行
+        fov_w_eff, fov_h_eff = fsw, fsh
+    else:
+        mp, w, h, name, sw, sh = chosen
+        steps.append(
+            f"取满足需求的最小档位：{mp:g} MP（{w}×{h}，靶面 {name} {sw}×{sh} mm）"
+        )
 
     # 档位余量提醒：刚好卡在边界时，实际装配公差会吃掉余量
-    cover_ratio = min(w / w_feat, h / h_feat)
-    if cover_ratio < 1.15:
-        warnings.append(
-            f"所选档位对需求的余量仅 {cover_ratio:.2f}×，接近边界；"
-            f"现场装配偏差可能导致视野不够，建议上调一档"
-        )
+    if fov_shot is None:
+        cover_ratio = min(w / w_feat, h / h_feat)
+        if cover_ratio < 1.15:
+            warnings.append(
+                f"所选档位对需求的余量仅 {cover_ratio:.2f}×，接近边界；"
+                f"现场装配偏差可能导致视野不够，建议上调一档"
+            )
 
     # --- 4. 实际像素精度（这才是最终交付给算法的数）---
     pixel_accuracy = fov_w_eff / w
@@ -218,6 +259,8 @@ def select_camera(fov_w: float, fov_h: float, accuracy: float,
         exposure_max_us=exposure_max_us,
         fps_min=fps_min,
         shutter=shutter, color_mode=color_mode,
+        shots_w=shots_w, shots_h=shots_h,
+        fov_shot=fov_shot, fov_full=fov_full,
         steps=steps, warnings=warnings,
     )
 

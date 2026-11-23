@@ -46,6 +46,9 @@ td.rule { color: #79839a; font-size: 12px; }
 .pill.fail { background: #331416; color: #ff5252; }
 .risk { background: #1a1d25; border: 1px solid #4a3a12; border-radius: 8px; padding: 14px 18px; }
 .risk li { color: #e8c98a; }
+.fix { background: #1a1d25; border: 1px solid #123a5a; border-radius: 8px; padding: 14px 18px; }
+.fix li { color: #7fb8ff; }
+.fix b { color: #a8cdf5; }
 .note { color: #79839a; font-size: 12px; margin-top: 6px; }
 footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #2b303c;
   color: #6b7280; font-size: 12px; }
@@ -81,6 +84,31 @@ def _checks(rep) -> str:
     return (
         "<table><tr><th>检查项</th><th>结论</th><th>实测 / 复算</th><th>依据</th></tr>"
         + "".join(rows) + "</table>"
+    )
+
+
+def _remedies(rep) -> str:
+    """修复方向：对警告 / 不通过项反解出的可执行修法（含数字）。"""
+    items = [(c, r) for c in rep.checks for r in c.remedies]
+    if not items:
+        return ""
+    lis = []
+    for c, r in items:
+        lis.append(f"<li><b>{_e(c.name)}</b>：{_e(r)}</li>")
+    return (
+        "<h2>修复方向</h2><div class='fix'><ul style='margin:0;padding-left:20px'>"
+        + "".join(lis) + "</ul></div>"
+    )
+
+
+def _multi_shot_note(cam) -> str:
+    if not cam.fov_shot:
+        return ""
+    return (
+        f"<p class='sub' style='color:#7fb8ff'>超规格拆分：单相机无法覆盖该视野与精度组合，"
+        f"已按 <b>{cam.shots_w}×{cam.shots_h} = {cam.shots_w * cam.shots_h} 幅</b>多拍方案选型"
+        f"（单幅视野 {cam.fov_shot[0]:.2f}×{cam.fov_shot[1]:.2f} mm，"
+        f"机械位移逐幅拍摄或多相机分区）；镜头 / 光源 / 自检均按单幅视野计算。</p>"
     )
 
 
@@ -132,12 +160,14 @@ def build_html(inputs: dict, diag, cam, lens, light, ctrl, val, version="v0.1.0"
           综合判定 <span class="{gcls}">{diag.grade}</span></p>
         {issues}
         {notes}
-        <p class="note">判据出处：「什么才算一张好图」——灰度差 ≥ 30、整体均匀、不能过曝。</p>
+        <p class="note">判据出处：「什么才算一张好图」——灰度差 ≥ 30、整体均匀、不能过曝。
+          本次判级阈值来源：{_e(diag.threshold_source)}。</p>
         """
 
     # 四组计算过程
     calc_html = f"""
     <h2>相机：{cam.megapixel:g} MP / {cam.color_mode} / {_e(cam.shutter)}</h2>
+    {_multi_shot_note(cam)}
     {_steps(cam.steps)}
     <h2>镜头：{lens.f_recommend:g} mm / 工作距离 {lens.wd_at_recommend:.0f} mm</h2>
     {_steps(lens.steps)}
@@ -178,7 +208,7 @@ def build_html(inputs: dict, diag, cam, lens, light, ctrl, val, version="v0.1.0"
   <div class="card"><div class="k">相机</div>
     <div class="v">{cam.megapixel:g} MP</div>
     <div class="n">{cam.width_px}×{cam.height_px}　{cam.sensor_name}　{cam.color_mode}<br>
-      {_e(cam.interface)}　{_e(cam.mount)}</div></div>
+      {_e(cam.interface)}　{_e(cam.mount)}{f'<br>多拍 {cam.shots_w}×{cam.shots_h} 幅（单幅 {cam.fov_shot[0]:.2f}×{cam.fov_shot[1]:.2f} mm）' if cam.fov_shot else ''}</div></div>
   <div class="card"><div class="k">镜头</div>
     <div class="v">{lens.f_recommend:g} mm</div>
     <div class="n">WD {lens.wd_at_recommend:.0f} mm　视场角 {lens.fov_angle_deg:.1f}°　{lens.magnification:.2f}×</div></div>
@@ -202,6 +232,7 @@ def build_html(inputs: dict, diag, cam, lens, light, ctrl, val, version="v0.1.0"
 
 <h2>自检复算</h2>
 {_checks(val)}
+{_remedies(val)}
 
 <h2>风险与边界</h2>
 {risk_html}

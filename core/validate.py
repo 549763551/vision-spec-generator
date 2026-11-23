@@ -20,6 +20,7 @@ class Check:
     status: str      # pass / warn / fail
     detail: str
     rule: str        # 依据的公式或通行做法结论
+    remedies: list = field(default_factory=list)  # 修复方向建议，由 core.remedy 回填
 
 
 @dataclass
@@ -168,28 +169,54 @@ def validate(camera, lens, light, controller,
             "通道数是线数，不是光源个数",
         ))
 
-    # --- 7. 分辨率余量 ---
-    cover = min(camera.width_px / camera.res_for_defect[0],
-                camera.height_px / camera.res_for_defect[1])
-    if cover >= 1.15:
+    # --- 7. 分辨率余量（多拍方案按单幅判定，此处改为覆盖恒等式）---
+    if camera.fov_shot is not None:
+        fw, fh = camera.fov_full or (0.0, 0.0)
+        cover_w = camera.shots_w * camera.fov_shot[0]
+        cover_h = camera.shots_h * camera.fov_shot[1]
+        if cover_w >= fw - 1e-9 and cover_h >= fh - 1e-9:
+            checks.append(Check(
+                "多拍覆盖视野", "pass",
+                f"{camera.shots_w}×{camera.shots_h} 幅 × 单幅 {camera.fov_shot[0]:.2f}×"
+                f"{camera.fov_shot[1]:.2f} mm = {cover_w:.1f}×{cover_h:.1f} mm "
+                f"≥ 全视野 {fw:g}×{fh:g} mm",
+                "拆分幅数 = ceil(全视野 ÷ 单幅视野)",
+            ))
+        else:
+            checks.append(Check(
+                "多拍覆盖视野", "fail",
+                f"覆盖 {cover_w:.1f}×{cover_h:.1f} mm 小于全视野 {fw:g}×{fh:g} mm",
+                "拆分幅数 = ceil(全视野 ÷ 单幅视野)",
+            ))
         checks.append(Check(
-            "分辨率余量充足", "pass",
-            f"所选 {camera.megapixel:g}MP 对需求 {camera.res_for_defect[0]}×"
-            f"{camera.res_for_defect[1]} 的余量 {cover:.2f}×",
-            "缺陷需占 3~4 像素",
-        ))
-    elif cover >= 1.0:
-        checks.append(Check(
-            "分辨率余量偏紧", "warn",
-            f"余量仅 {cover:.2f}×，装配公差可能吃掉余量，建议上调一档",
-            "缺陷需占 3~4 像素",
+            "多拍单幅精度", "pass" if camera.pixel_accuracy_mm <= accuracy else "fail",
+            f"单幅像素精度 {camera.pixel_accuracy_mm:.4f} mm/px"
+            f"{' ≤' if camera.pixel_accuracy_mm <= accuracy else ' >'} 要求 {accuracy:g} mm/px，"
+            f"镜头/光源均按单幅视野 {camera.fov_shot[0]:.2f}×{camera.fov_shot[1]:.2f} mm 选型",
+            "精度 = 视野 ÷ 分辨率（按单幅）",
         ))
     else:
-        checks.append(Check(
-            "分辨率不足", "fail",
-            f"所选档位 {camera.width_px}×{camera.height_px} 小于需求",
-            "缺陷需占 3~4 像素",
-        ))
+        cover = min(camera.width_px / camera.res_for_defect[0],
+                    camera.height_px / camera.res_for_defect[1])
+        if cover >= 1.15:
+            checks.append(Check(
+                "分辨率余量充足", "pass",
+                f"所选 {camera.megapixel:g}MP 对需求 {camera.res_for_defect[0]}×"
+                f"{camera.res_for_defect[1]} 的余量 {cover:.2f}×",
+                "缺陷需占 3~4 像素",
+            ))
+        elif cover >= 1.0:
+            checks.append(Check(
+                "分辨率余量偏紧", "warn",
+                f"余量仅 {cover:.2f}×，装配公差可能吃掉余量，建议上调一档",
+                "缺陷需占 3~4 像素",
+            ))
+        else:
+            checks.append(Check(
+                "分辨率不足", "fail",
+                f"所选档位 {camera.width_px}×{camera.height_px} 小于需求",
+                "缺陷需占 3~4 像素",
+            ))
 
     # --- 8. 远心与检测目的匹配 ---
     if lens.need_telecentric:

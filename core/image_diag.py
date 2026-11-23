@@ -9,15 +9,34 @@
   1. 特征与背景的灰度差 ≥ 30 才算稳定
   2. 整体均匀，不能有过曝亮斑；过曝丢细节、欠曝看不见
   3. 色彩还原真实（本模块先做灰度判据，颜色判据留待彩色通道）
+
+阈值分两级（结构沿袭内置经验值）：
+  提示级（gray_diff / over_soft / lap_hard）可用 --calibrate 用好坏样张校准；
+  严重级由提示级按固定比例推导（2/3、10/3、8/15），内置默认值与
+  原版手写阈值（20 / 0.10 / 8）完全一致。
 """
 
 from dataclasses import dataclass, field
+import json
+import os
 import shutil
 import subprocess
 
 
 class ImageDiagError(Exception):
-    """图像无法解码时抛出。"""
+    """图像无法解码 / 校准组不合法时抛出。"""
+
+
+# 内置经验阈值（提示级）。--calibrate 生成的 thresholds.json 覆盖这三个键。
+DEFAULT_THRESHOLDS = {
+    "gray_diff": 30.0,   # 特征/背景灰度差下限，低于即"算法阈值会敏感"
+    "over_soft": 0.03,   # 过曝占比提示级，高于即"亮部接近饱和"
+    "lap_hard": 15.0,    # 拉普拉斯方差下限（画面仍有强边缘时），低于即疑似离焦
+}
+
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp")
+
+_CALIBRATE_KEYS = ("gray_diff", "over_soft", "lap_hard")
 
 
 @dataclass
@@ -36,6 +55,7 @@ class ImageDiag:
     issues: list = field(default_factory=list)   # 影响判级
     notes: list = field(default_factory=list)    # 仅供阅读，不影响判级
     steps: list = field(default_factory=list)
+    threshold_source: str = "内置经验值"          # 判级阈值来源说明
 
     def as_dict(self) -> dict:
         """供 light.recommend_light 的 diag 参数使用。"""
@@ -129,8 +149,8 @@ def _otsu(hist: list) -> int:
     return best_t
 
 
-def diagnose(path: str) -> ImageDiag:
-    """对一张图片做成像质量诊断。"""
+def _measure(path: str) -> dict:
+    """解码一张图并算出全部原始指标（不做判级）。需要 ffmpeg。"""
     width, height, pixels = _decode_pgm(path)
     n = len(pixels)
 
@@ -205,20 +225,56 @@ def diagnose(path: str) -> ImageDiag:
     under_r = under / n
     steps.append(f"过曝像素占比 {over_r:.2%}，欠曝像素占比 {under_r:.2%}")
 
-    # --- 判级（判据来自通行做法，阈值按工程经验分严重/提示两级）---
-    # issues 影响判级；notes 只作说明，不改变结论。
+    return {
+        "width": width, "height": height, "mean": mean, "std": std,
+        "gray_diff": gray_diff, "overexposed_ratio": over_r,
+        "underexposed_ratio": under_r, "lap_var": lap_var,
+        "strong_edge_ratio": strong_ratio, "otsu_threshold": thr,
+        "steps": steps,
+    }
+
+
+def _merged_thresholds(thresholds: dict | None) -> dict:
+    t = dict(DEFAULT_THRESHOLDS)
+    if thresholds:
+        for k in t:
+            if k in thresholds and thresholds[k] is not None:
+                t[k] = float(thresholds[k])
+    return t
+
+
+def _grade(m: dict, t: dict) -> tuple:
+    """按阈值判级。issues 影响判级；notes 只作说明，不改变结论。
+
+    严重级阈值由提示级按固定比例推导：
+      灰度差严重级 = 提示级 × 2/3（30 → 20，与原版一致）
+      过曝严重级   = 提示级 × 10/3（0.03 → 0.10，与原版一致）
+      清晰度软级   = 提示级 × 8/15（15 → 8，与原版一致）
+    """
+    gray_diff = m["gray_diff"]
+    over_r = m["overexposed_ratio"]
+    under_r = m["underexposed_ratio"]
+    std = m["std"]
+    mean = m["mean"]
+    lap_var = m["lap_var"]
+    strong_ratio = m["strong_edge_ratio"]
+
+    gray_severe = t["gray_diff"] * 2 / 3
+    over_hard = t["over_soft"] * 10 / 3
+    lap_soft = t["lap_hard"] * 8 / 15
+
     issues = []
     notes = []
     severe = 0
-    if gray_diff < 20:
-        issues.append(f"灰度差 {gray_diff:.1f} 远低于 30，特征与背景几乎分不开")
+    if gray_diff < gray_severe:
+        issues.append(f"灰度差 {gray_diff:.1f} 远低于 {t['gray_diff']:g}，特征与背景几乎分不开")
         severe += 1
-    elif gray_diff < 30:
-        issues.append(f"灰度差 {gray_diff:.1f} 未达 30，算法阈值会很敏感")
-    if over_r > 0.10:
+    elif gray_diff < t["gray_diff"]:
+        issues.append(f"灰度差 {gray_diff:.1f} 未达 {t['gray_diff']:g}，算法阈值会很敏感")
+    if over_r > over_hard:
         issues.append(f"过曝 {over_r:.1%}，亮部细节已丢失")
         severe += 1
-    elif over_r > 0.03:
+    elif over_r > t["over_soft"]:
         notes.append(
             f"亮部接近饱和（{over_r:.1%} 像素 ≥ 250）：白色产品本身合法，"
             f"只需确认检测区不落在过曝位置"
@@ -237,13 +293,13 @@ def diagnose(path: str) -> ImageDiag:
     # 模糊 vs 低纹理要分开：
     #   方差低 + 完全没边缘 → 是样品本身平整/无特征，不是失焦
     #   方差低 + 仍有边缘但很软 → 才是离焦或解析力不足
-    if lap_var < 15 and strong_ratio >= 0.001:
+    if lap_var < t["lap_hard"] and strong_ratio >= 0.001:
         issues.append(
             f"拉普拉斯方差 {lap_var:.0f} 偏低但仍有 {strong_ratio:.2%} 强边缘，"
             f"边缘偏软：可能离焦、镜头解析力不足或光源角度过正"
         )
         severe += 1
-    elif lap_var < 8 and strong_ratio < 0.001:
+    elif lap_var < lap_soft and strong_ratio < 0.001:
         issues.append(
             f"画面几乎没有纹理与边缘（方差 {lap_var:.0f}），"
             f"确认样品/ROI 是否有效，或视野是否落在空白区域"
@@ -255,10 +311,113 @@ def diagnose(path: str) -> ImageDiag:
         grade = "临界"
     else:
         grade = "合格"
+    return grade, issues, notes
+
+
+def diagnose(path: str, thresholds: dict | None = None) -> ImageDiag:
+    """对一张图片做成像质量诊断。
+
+    thresholds 传 --calibrate 生成的字典（或 load_thresholds 的结果）时，
+    判级用你的产线阈值；None 时用内置经验值。
+    """
+    m = _measure(path)
+    t = _merged_thresholds(thresholds)
+    grade, issues, notes = _grade(m, t)
+
+    src = "内置经验值"
+    if isinstance(thresholds, dict) and thresholds.get("source"):
+        src = str(thresholds["source"])
+    steps = list(m["steps"])
+    steps.append(
+        f"判级阈值（{src}）：灰度差 ≥ {t['gray_diff']:g}、"
+        f"过曝 ≤ {t['over_soft']:.0%}、拉普拉斯方差 ≥ {t['lap_hard']:g}"
+    )
 
     return ImageDiag(
-        width=width, height=height, mean=mean, std=std,
-        gray_diff=gray_diff, overexposed_ratio=over_r,
-        underexposed_ratio=under_r, lap_var=lap_var, strong_edge_ratio=strong_ratio,
-        otsu_threshold=thr, grade=grade, issues=issues, notes=notes, steps=steps,
+        width=m["width"], height=m["height"], mean=m["mean"], std=m["std"],
+        gray_diff=m["gray_diff"], overexposed_ratio=m["overexposed_ratio"],
+        underexposed_ratio=m["underexposed_ratio"], lap_var=m["lap_var"],
+        strong_edge_ratio=m["strong_edge_ratio"],
+        otsu_threshold=m["otsu_threshold"], grade=grade,
+        issues=issues, notes=notes, steps=steps,
+        threshold_source=src,
     )
+
+
+# ---------------------------------------------------------------------------
+# 阈值自校准：好坏两组样张 → 本产线的判级阈值
+# ---------------------------------------------------------------------------
+
+def _list_images(directory: str) -> list:
+    if not os.path.isdir(directory):
+        raise ImageDiagError(f"目录不存在：{directory}")
+    return sorted(
+        os.path.join(directory, f) for f in os.listdir(directory)
+        if f.lower().endswith(IMAGE_EXTS)
+    )
+
+
+def calibrate(good_dir: str, bad_dir: str, min_images: int = 3) -> tuple:
+    """用好/坏两组样张反推提示级阈值，返回 (thresholds, warnings)。
+
+    每个指标取两组均值的中间点；好组指标不优于差组时给出警告
+    （阈值仍会写入，但区分度存疑，建议换样本再校准）。
+    """
+    good_files = _list_images(good_dir)
+    bad_files = _list_images(bad_dir)
+    if len(good_files) < min_images or len(bad_files) < min_images:
+        raise ImageDiagError(
+            f"校准组每组至少 {min_images} 张"
+            f"（好 {len(good_files)} / 差 {len(bad_files)}）"
+        )
+
+    mg = [_measure(p) for p in good_files]
+    mb = [_measure(p) for p in bad_files]
+
+    metric_to_key = {
+        "gray_diff": "gray_diff",
+        "overexposed_ratio": "over_soft",
+        "lap_var": "lap_hard",
+    }
+    stats = {}
+    thresholds = {}
+    warnings = []
+    for metric, key in metric_to_key.items():
+        g = [x[metric] for x in mg]
+        b = [x[metric] for x in mb]
+        gm, bm = sum(g) / len(g), sum(b) / len(b)
+        mid = (gm + bm) / 2
+        stats[metric] = {"good_mean": round(gm, 4), "bad_mean": round(bm, 4),
+                         "threshold": round(mid, 4)}
+        thresholds[key] = round(mid, 4)
+        if metric == "overexposed_ratio":
+            # 过曝是"越低越好"，好组应不高于差组
+            if gm > bm:
+                warnings.append(
+                    f"过曝占比：好组均值 {gm:.3f} 高于差组 {bm:.3f}，"
+                    f"校准出的过曝阈值可能不可靠"
+                )
+        elif gm <= bm:
+            warnings.append(
+                f"{metric}：好组均值 {gm:.1f} 不高于差组 {bm:.1f}，"
+                f"两组样本区分度不足，建议换更典型的样张"
+            )
+    if thresholds.get("gray_diff", 0) <= 0:
+        warnings.append("灰度差阈值为 0：两组都几乎无对比，该判据在本产线失效")
+
+    thresholds["source"] = f"校准组（好 {len(good_files)} / 差 {len(bad_files)} 张）"
+    thresholds["stats"] = stats
+    return thresholds, warnings
+
+
+def save_thresholds(thresholds: dict, path: str) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(thresholds, f, ensure_ascii=False, indent=2)
+
+
+def load_thresholds(path: str) -> dict:
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    if not isinstance(data, dict) or not any(k in data for k in _CALIBRATE_KEYS):
+        raise ValueError(f"不是有效的阈值文件（缺 {_CALIBRATE_KEYS} 键）：{path}")
+    return data

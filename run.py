@@ -20,8 +20,9 @@ from core.lens import select_lens
 from core.light import recommend_light
 from core.controller import select_controller
 from core.validate import validate
+from core.remedy import attach_remedies
 from core.report import build_html
-from core.image_diag import diagnose, ImageDiagError
+from core.image_diag import diagnose, calibrate, save_thresholds, load_thresholds, ImageDiagError
 from core.yvison_export import build_camera_template, save_template
 
 TASKS = [
@@ -67,10 +68,36 @@ def main(argv=None) -> int:
     p.add_argument("--timeseq", action="store_true", help="需要多路分时/分区域点亮")
     p.add_argument("--stable", action="store_true", help="需要长期亮度稳定")
     p.add_argument("--outdir", default="out", help="方案书输出目录，默认 out")
+    p.add_argument("--calibrate", nargs=2, metavar=("GOOD_DIR", "BAD_DIR"),
+                   help="用好坏两组样张校准图像诊断阈值，写入 out/thresholds.json 后退出")
+    p.add_argument("--thresholds", help="图像诊断阈值 JSON 路径；不给则自动找 out/thresholds.json")
     p.add_argument("--yvison-camera",
                    help="Yvison 的 User_Camera.xml 路径；给了就额外生成相机参数模板副本")
     p.add_argument("--yvison-brand", default="海康", help="模板里的品牌组名，默认 海康")
     args = p.parse_args(argv)
+
+    # --- 0a. 阈值自校准：用好/坏两组样张反推本产线的诊断阈值，然后退出 ---
+    if args.calibrate:
+        good_dir, bad_dir = args.calibrate
+        try:
+            thresholds, warns = calibrate(good_dir, bad_dir)
+        except ImageDiagError as e:
+            p.error(str(e))
+        os.makedirs(args.outdir, exist_ok=True)
+        tpath = os.path.join(args.outdir, "thresholds.json")
+        save_thresholds(thresholds, tpath)
+        print("=" * 62)
+        print(f"阈值校准　好组 {good_dir}　差组 {bad_dir}")
+        print("=" * 62)
+        for k, s in thresholds["stats"].items():
+            print(f"  {k:20s} 好 {s['good_mean']:.1f} / 差 {s['bad_mean']:.1f}"
+                  f" → 阈值 {s['threshold']:.1f}")
+        for w in warns:
+            print(f"  [注意] {w}")
+        print("-" * 62)
+        print(f"已写入 {os.path.abspath(tpath)}")
+        print("之后带样张运行会自动加载（也可用 --thresholds 显式指定路径）。")
+        return 0
 
     # --- 0. 图纸驱动：从公差与外形反推检测条件（可选）---
     if args.drawing_txt:
@@ -98,12 +125,22 @@ def main(argv=None) -> int:
     moving = args.moving and not args.static
     fov_w, fov_h = parse_fov(args.fov)
 
-    # --- 1. 图像诊断（可选，失败自动降级）---
+    # --- 1. 图像诊断（可选，失败自动降级；阈值优先用户校准值）---
     diag = None
     diag_note = ""
+    thresholds = None
+    t_src = args.thresholds or os.path.join(args.outdir, "thresholds.json")
+    if not args.thresholds and not os.path.exists(t_src):
+        t_src = None
+    if t_src:
+        try:
+            thresholds = load_thresholds(t_src)
+        except (OSError, ValueError) as e:
+            print(f"[警告] 阈值文件加载失败，回退内置经验值：{e}", file=sys.stderr)
+            thresholds = None
     if args.image and not args.no_image:
         try:
-            diag = diagnose(args.image)
+            diag = diagnose(args.image, thresholds=thresholds)
         except ImageDiagError as e:
             diag_note = f"图像诊断跳过：{e}"
             print(f"[警告] {diag_note}", file=sys.stderr)
@@ -118,6 +155,10 @@ def main(argv=None) -> int:
     )
     fov_w_eff = fov_w * (1 + args.fov_margin)
     fov_h_eff = fov_h * (1 + args.fov_margin)
+
+    # 超规格时相机已按多拍拆分：镜头/光源/自检一律改用单幅视野
+    if cam.fov_shot:
+        fov_w_eff, fov_h_eff = cam.fov_shot
 
     # --- 3. 镜头 ---
     lens = select_lens(
@@ -144,9 +185,15 @@ def main(argv=None) -> int:
         need_stable_brightness=args.stable,
     )
 
-    # --- 6. 自检复算 ---
+    # --- 6. 自检复算 + 修复方向 ---
     val = validate(
         camera=cam, lens=lens, light=light, controller=ctrl,
+        accuracy=args.accuracy, height_variation=args.height_var,
+        moving=moving, speed=args.speed,
+        fov_w=fov_w_eff, fov_h=fov_h_eff, wd_expect=args.wd,
+    )
+    attach_remedies(
+        val, cam, lens, light, ctrl,
         accuracy=args.accuracy, height_variation=args.height_var,
         moving=moving, speed=args.speed,
         fov_w=fov_w_eff, fov_h=fov_h_eff, wd_expect=args.wd,
@@ -175,6 +222,10 @@ def main(argv=None) -> int:
     print(f"相机    {cam.megapixel:g}MP  {cam.width_px}×{cam.height_px}  "
           f"{cam.sensor_name}  {cam.color_mode}")
     print(f"        像素精度 {cam.pixel_accuracy_mm:.4f} mm/px  {cam.shutter}")
+    if cam.fov_shot:
+        print(f"        多拍 {cam.shots_w}×{cam.shots_h} = {cam.shots_w * cam.shots_h} 幅，"
+              f"单幅视野 {cam.fov_shot[0]:.2f}×{cam.fov_shot[1]:.2f} mm"
+              f"（机械位移逐幅拍或多相机分区）")
     print(f"镜头    {lens.f_recommend:g}mm  WD {lens.wd_at_recommend:.0f}mm  "
           f"视场角 {lens.fov_angle_deg:.1f}°  景深≈{lens.dof_estimate_mm:.3f}mm")
     print(f"光源    {light.form}　{light.series}{(' ' + light.angle) if light.angle else ''}"
@@ -190,6 +241,8 @@ def main(argv=None) -> int:
     for c in val.checks:
         if c.status != "pass":
             print(f"  [{c.status.upper()}] {c.name}：{c.detail}")
+            for r in c.remedies:
+                print(f"      修法：{r}")
     if diag_note:
         print(f"  注：{diag_note}")
     print("-" * 62)
