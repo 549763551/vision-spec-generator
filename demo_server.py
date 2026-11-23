@@ -377,6 +377,7 @@ class Handler(BaseHTTPRequestHandler):
                     series=gl("series", "RS"),
                     fov_w=fw, fov_h=fh,
                     scan=gl("scan", "area"),
+                    wd=float(gl("wd", "160") or 160),
                 )
                 self._send(200, json.dumps(data, ensure_ascii=False).encode("utf-8"))
             except Exception as e:

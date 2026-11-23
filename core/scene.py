@@ -31,31 +31,50 @@ FORM_SHAPE = {
 }
 
 # 光学实验室可选光源：系列 → (显示名, 默认发光角度°)
-# 角度只是初始值，实验室里由用户拖动实时改；空串表示该形态不谈发光角。
+# 角度只是初始值，实验室里由用户滑动实时改；空串表示该形态不谈发光角。
 LAB_LIGHTS = {
-    "RS":   ("环形光", 30),
-    "2BS":  ("条形光", 30),
+    "RS":   ("环形光", 78),
+    "2BS":  ("条形光", 78),
     "HFS":  ("面光源", 90),
     "PHFS": ("平行面光源", 90),
-    "CO":   ("同轴光", 0),
-    "DS":   ("圆顶光", 0),
-    "LPG":  ("线光源", 45),
-    "TUG":  ("隧道光", 0),
+    "CO":   ("同轴光", 90),
+    "DS":   ("圆顶光", 90),
+    "LPG":  ("线光源", 78),
+    "TUG":  ("隧道光", 90),
+}
+
+# 安装参数：光源一律固定在相机支架上，只有支架臂长（= 光源到工件距离）
+# 与灯珠内倾角可调。h 是光源发光面到工件上表面的毫米数，不是工作距离。
+LAB_MOUNT = {
+    "RS":   {"h": 80,  "h_range": [40, 200], "tiltable": True},
+    "2BS":  {"h": 70,  "h_range": [40, 200], "tiltable": True},
+    "HFS":  {"h": 110, "h_range": [50, 220], "tiltable": False},
+    "PHFS": {"h": 110, "h_range": [50, 220], "tiltable": False},
+    "CO":   {"h": 0,   "h_range": [0, 0],    "tiltable": False},
+    "DS":   {"h": 26,  "h_range": [14, 70],  "tiltable": False},
+    "LPG":  {"h": 80,  "h_range": [40, 200], "tiltable": True},
+    "TUG":  {"h": 30,  "h_range": [16, 70],  "tiltable": False},
 }
 
 
 def build_lab(series: str = "RS", fov_w: float = 15.0, fov_h: float = 12.0,
-              scan: str = "area") -> dict:
+              scan: str = "area", wd: float = 160.0) -> dict:
     """光学实验室：直接指定光源系列，返回该形态的 3D 几何。
 
     与 build_scene 的区别：build_scene 从 task 反推"该用什么光源"（推荐）；
     这里反过来——用户自由换光源形态，在推荐基础上手动调试。
-    发光角与工作距离由前端在 3D 里实时调整，不必每次回后端。
+
+    两处硬约束（决定了页面上的交互方式）：
+      1. 光源固定在相机支架上，不做自由拖拽，只允许调支架臂长与灯珠内倾角；
+      2. 相机有真实工作距离 wd，镜头到工件的光轴距离 —— 相机画面机位由它决定，
+         不能再拿光源安装高度冒充。
     """
     from .light import LightSpec
 
     if series not in LAB_LIGHTS:
         series = "RS"
+    if wd <= 0:
+        wd = 160.0
     form, def_angle = LAB_LIGHTS[series]
     light = LightSpec(
         direction="", field_type="", color="白光",
@@ -64,14 +83,23 @@ def build_lab(series: str = "RS", fov_w: float = 15.0, fov_h: float = 12.0,
         angle=(f"{def_angle}°" if def_angle else ""),
     )
     geo = _light_geometry(light, fov_w, scan)
+    mount = dict(LAB_MOUNT.get(series, LAB_MOUNT["RS"]))
+    mount["tilt"] = def_angle
+    # 相机视场角：由视野宽与工作距离反推，页面小窗口按这个真值出图
+    fov_deg = 2 * math.degrees(math.atan((fov_w / 2.0) / wd))
     return {
         "ok": True,
         "series": series,
         "form": form,
         "default_angle": def_angle,
         "fov": [fov_w, fov_h],
+        "wd": wd,
+        "mount": mount,
+        "camera": {"wd": wd, "fov_deg": round(fov_deg, 2), "mount": "bracket"},
         "light": geo,
-        "lights": [{"series": s, "form": f} for s, (f, _a) in LAB_LIGHTS.items()],
+        "lights": [{"series": s, "form": f, "h": LAB_MOUNT[s]["h"],
+                    "tiltable": LAB_MOUNT[s]["tiltable"]}
+                   for s, (f, _a) in LAB_LIGHTS.items()],
     }
 
 

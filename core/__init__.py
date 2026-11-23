@@ -1,3 +1,3 @@
 """vision-spec-generator 核心计算包。"""
 
-__version__ = "v0.5.0"
+__version__ = "v0.6.0"
