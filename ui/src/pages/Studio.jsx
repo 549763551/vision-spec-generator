@@ -386,6 +386,12 @@ function Results({ data, form }) {
   const { camera, lens, light, controller, validate, procedure, report_url } = data
   const need = camera.res_for_defect?.[0] || 0
   const cover = need ? Math.min(1, need / camera.w) : 0
+  /* 带当前推荐光源进光学实验室，可换光源、调角度/距离 */
+  const labHref = '/lab?' + new URLSearchParams({
+    series: light?.series || 'RS',
+    fov: `${form.fov_w}x${form.fov_h}`,
+    wd: String(form.wd),
+  }).toString()
 
   return (
     <>
@@ -502,6 +508,7 @@ function Results({ data, form }) {
           <ExternalLink size={14} strokeWidth={2} />
           打开完整方案书
         </a>
+        <Button icon={Lightbulb} onClick={() => window.open(labHref, '_blank')}>进光学实验室调试</Button>
         <Button icon={Download} onClick={() => downloadParams(data)}>导出参数清单</Button>
         <Button
           variant="ghost" icon={RotateCcw}

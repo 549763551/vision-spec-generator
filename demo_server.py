@@ -37,7 +37,7 @@ from core.report import build_html
 from core.image_diag import diagnose, ImageDiagError
 from core.drawing import parse_drawing
 from core.procedure import build_procedure
-from core.scene import build_scene
+from core.scene import build_scene, build_lab
 from core.yvison_export import build_camera_template, save_template
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -324,6 +324,13 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 with open(fp, "rb") as f:
                     self._send(200, f.read(), "text/html; charset=utf-8")
+        elif path in ("/lab", "/lab.html"):
+            fp = os.path.join(WEB, "lab.html")
+            if not os.path.exists(fp):
+                self._send(404, b'{"ok":false,"error":"not found"}')
+            else:
+                with open(fp, "rb") as f:
+                    self._send(200, f.read(), "text/html; charset=utf-8")
         elif path == "/sample/part.png":
             fp = os.path.join(ROOT, "data", "samples", "sample_part.png")
             if os.path.exists(fp):
@@ -354,6 +361,22 @@ class Handler(BaseHTTPRequestHandler):
                     speed=float(g("speed", "0")),
                     scan=g("scan", "area"),
                     moving=(g("moving", "0") in ("1", "true")),
+                )
+                self._send(200, json.dumps(data, ensure_ascii=False).encode("utf-8"))
+            except Exception as e:
+                self._send(500, json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"[:300]},
+                                           ensure_ascii=False).encode("utf-8"))
+        elif path == "/api/lab":
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            def gl(k, d=None):
+                return q.get(k, [d])[0]
+            try:
+                fov = gl("fov", "15x12").replace("×", "x").split("x")
+                fw, fh = float(fov[0]), float(fov[1])
+                data = build_lab(
+                    series=gl("series", "RS"),
+                    fov_w=fw, fov_h=fh,
+                    scan=gl("scan", "area"),
                 )
                 self._send(200, json.dumps(data, ensure_ascii=False).encode("utf-8"))
             except Exception as e:

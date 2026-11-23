@@ -45,6 +45,13 @@ export default function AppShell({ children }) {
               </NavLink>
             ))}
             <a
+              href="/lab"
+              className="interactive group flex items-center gap-1 rounded-[7px] px-2.5 py-1.5 text-[12.5px] text-ink-3 hover:bg-surface-2/60 hover:text-ink-1"
+            >
+              光学实验室
+              <ArrowUpRight size={12} className="opacity-50 transition-opacity group-hover:opacity-100" />
+            </a>
+            <a
               href="/exploded"
               className="interactive group flex items-center gap-1 rounded-[7px] px-2.5 py-1.5 text-[12.5px] text-ink-3 hover:bg-surface-2/60 hover:text-ink-1"
             >

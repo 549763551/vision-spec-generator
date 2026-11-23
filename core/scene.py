@@ -30,6 +30,50 @@ FORM_SHAPE = {
     "CO": "coax", "DS": "dome", "LPG": "line", "TUG": "tunnel",
 }
 
+# 光学实验室可选光源：系列 → (显示名, 默认发光角度°)
+# 角度只是初始值，实验室里由用户拖动实时改；空串表示该形态不谈发光角。
+LAB_LIGHTS = {
+    "RS":   ("环形光", 30),
+    "2BS":  ("条形光", 30),
+    "HFS":  ("面光源", 90),
+    "PHFS": ("平行面光源", 90),
+    "CO":   ("同轴光", 0),
+    "DS":   ("圆顶光", 0),
+    "LPG":  ("线光源", 45),
+    "TUG":  ("隧道光", 0),
+}
+
+
+def build_lab(series: str = "RS", fov_w: float = 15.0, fov_h: float = 12.0,
+              scan: str = "area") -> dict:
+    """光学实验室：直接指定光源系列，返回该形态的 3D 几何。
+
+    与 build_scene 的区别：build_scene 从 task 反推"该用什么光源"（推荐）；
+    这里反过来——用户自由换光源形态，在推荐基础上手动调试。
+    发光角与工作距离由前端在 3D 里实时调整，不必每次回后端。
+    """
+    from .light import LightSpec
+
+    if series not in LAB_LIGHTS:
+        series = "RS"
+    form, def_angle = LAB_LIGHTS[series]
+    light = LightSpec(
+        direction="", field_type="", color="白光",
+        size_mm=(round(fov_w * 1.2, 1), round(fov_h * 1.2, 1)),
+        polarization=False, form=form, series=series,
+        angle=(f"{def_angle}°" if def_angle else ""),
+    )
+    geo = _light_geometry(light, fov_w, scan)
+    return {
+        "ok": True,
+        "series": series,
+        "form": form,
+        "default_angle": def_angle,
+        "fov": [fov_w, fov_h],
+        "light": geo,
+        "lights": [{"series": s, "form": f} for s, (f, _a) in LAB_LIGHTS.items()],
+    }
+
 
 def _cam_geometry(cam):
     """相机机身：面阵是方箱，线阵是细长条；分辨率越高机身越大一点。"""
