@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { ArrowUpRight } from 'lucide-react'
 
@@ -7,6 +8,15 @@ const links = [
 ]
 
 export default function AppShell({ children }) {
+  const [version, setVersion] = useState('')
+
+  useEffect(() => {
+    fetch('/api/version')
+      .then((r) => r.json())
+      .then((d) => setVersion(d.version || ''))
+      .catch(() => {})
+  }, [])
+
   return (
     <div className="min-h-screen overflow-x-clip top-sheen">
       <header className="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur-xl">
@@ -43,7 +53,7 @@ export default function AppShell({ children }) {
 
           <div className="ml-auto hidden items-center gap-3 sm:flex">
             <span className="hidden text-[10.5px] tracking-[0.04em] text-ink-3/80 tnum sm:block">
-              v0.2.0
+              {version || '—'}
             </span>
           </div>
         </div>

@@ -370,6 +370,8 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._send(500, json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"[:300]},
                                            ensure_ascii=False).encode("utf-8"))
+        elif path == "/api/version":
+            self._send(200, json.dumps({"version": __version__}, ensure_ascii=False).encode("utf-8"))
         elif path == "/api/tasks":
             self._send(200, json.dumps({"tasks": TASKS}, ensure_ascii=False).encode())
         elif path.startswith("/out/"):
