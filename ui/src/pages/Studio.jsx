@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Aperture, Camera, CircuitBoard, Download, ExternalLink, FileText,
-  Lightbulb, Play, RotateCcw, Upload, X,
+  Aperture, Camera, CircuitBoard, Download, ExternalLink,
+  Info, Lightbulb, Play, RotateCcw, Upload,
 } from 'lucide-react'
 import { Button, Chip, Empty, ErrorBox, Field, Loading, Panel, Table, Td, inputCls } from '../components/ui'
 
@@ -225,7 +225,7 @@ export default function Studio() {
                 setImg({ dataUrl: '/sample/part.png', name: '内置合成样张', sample: true })
                 run(null, null, true)
               }}
-              className="block w-full text-left text-[10.5px] text-ink-3 transition-colors hover:text-accent"
+              className="interactive block w-full text-left text-[11px] text-ink-3 hover:text-accent"
             >
               没有样张？用内置合成样张 →
             </button>
@@ -359,7 +359,7 @@ function Dropzone({ busy, note, img, onPick, onFile, onClear }) {
             <span className="mt-2 max-w-full truncate text-[11.5px] text-ink-2">{img.name}</span>
             <button
               onClick={(e) => { e.stopPropagation(); onClear() }}
-              className="mt-1 text-[10.5px] text-ink-3 underline underline-offset-2 hover:text-fail"
+              className="interactive mt-1 text-[11px] text-ink-3 underline underline-offset-2 hover:text-fail"
             >
               移除样张
             </button>
@@ -368,12 +368,12 @@ function Dropzone({ busy, note, img, onPick, onFile, onClear }) {
           <>
             <Upload size={15} strokeWidth={1.7} className={busy ? 'animate-pulse text-accent' : 'text-ink-3'} />
             <span className="mt-2 text-[12px] text-ink-2">{busy ? '正在处理…' : '拖入图纸或样张'}</span>
-            <span className="mt-0.5 text-[10.5px] text-ink-3">PDF / TXT 推参数　JPG / PNG 判成像</span>
+            <span className="mt-0.5 text-[11px] text-ink-3">PDF / TXT 推参数　JPG / PNG 判成像</span>
           </>
         )}
       </div>
       {note && (
-        <p className="mt-2 border-l-2 border-accent/50 pl-2.5 text-[10.5px] leading-relaxed text-ink-3">
+        <p className="mt-2 border-l-2 border-accent/50 pl-2.5 text-[11px] leading-relaxed text-ink-3">
           {note}
         </p>
       )}
@@ -392,9 +392,12 @@ function Results({ data, form }) {
       {data.diag && <DiagPanel diag={data.diag} />}
       {!data.diag && data.diag_error && <DiagPanel error={data.diag_error} />}
       {!data.diag && !data.diag_error && (
-        <p className="text-[11px] text-ink-3">
-          未提供样张，本次跳过成像诊断——四组计算不依赖样张，结果照常有效。
-        </p>
+        <div className="interactive flex items-center gap-2.5 rounded-[10px] border border-line bg-surface px-3.5 py-2.5">
+          <Info size={14} strokeWidth={1.8} className="shrink-0 text-ink-3" />
+          <p className="text-[12px] leading-relaxed text-ink-3">
+            未提供样张，本次跳过成像诊断——四组计算不依赖样张，结果照常有效。
+          </p>
+        </div>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -446,7 +449,12 @@ function Results({ data, form }) {
       >
         <Table head={[{ label: '检查项', width: '26%' }, { label: '结论', width: '12%' }, { label: '说明' }, { label: '依据', width: '24%' }]}>
           {validate.checks.map((c, i) => (
-            <tr key={i} className="transition-colors hover:bg-surface-2/60">
+            <tr
+              key={i}
+              className={`transition-colors hover:bg-surface-2/60 ${
+                c.status === 'fail' ? 'bg-fail/5' : c.status === 'warn' ? 'bg-warn/5' : ''
+              }`}
+            >
               <Td>{c.name}</Td>
               <Td>
                 <Chip tone={STATUS[c.status].tone}>{STATUS[c.status].label}</Chip>
@@ -489,7 +497,7 @@ function Results({ data, form }) {
       <div className="flex flex-wrap items-center gap-2.5">
         <a
           href={report_url} target="_blank" rel="noreferrer"
-          className="inline-flex h-9 items-center gap-2 rounded-[8px] bg-accent px-4 text-[13px] font-medium text-[#08221f] transition hover:brightness-108"
+          className="interactive pressable inline-flex h-9 items-center gap-2 rounded-[8px] bg-accent px-4 text-[13px] font-medium text-[#08221f] hover:bg-accent-hi hover:shadow-[0_2px_14px_-4px_#2fd3c580]"
         >
           <ExternalLink size={14} strokeWidth={2} />
           打开完整方案书
@@ -507,7 +515,7 @@ function Results({ data, form }) {
         >
           在 3D 中查看
         </Button>
-        <span className="ml-auto text-[10.5px] text-ink-3">
+        <span className="ml-auto text-[11px] text-ink-3 tnum">
           {validate.fail > 0 ? '存在不通过项，装配前必须处理' : '可打印为 PDF 归档'}
         </span>
       </div>
@@ -519,8 +527,8 @@ function DiagPanel({ diag, error }) {
   if (error) {
     return (
       <Panel title="成像诊断" actions={<Chip tone="warn">未完成</Chip>}>
-        <p className="text-[11.5px] leading-relaxed text-ink-3">{error}</p>
-        <p className="mt-2 text-[10.5px] text-ink-3/80">样张只影响这一块，四组计算不受影响。</p>
+        <p className="text-[12px] leading-relaxed text-ink-3">{error}</p>
+        <p className="mt-2 text-[11px] text-ink-3/80">样张只影响这一块，四组计算不受影响。</p>
       </Panel>
     )
   }
@@ -542,9 +550,9 @@ function DiagPanel({ diag, error }) {
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[10px] border border-line bg-line sm:grid-cols-4">
         {metrics.map(([k, v, d]) => (
           <div key={k} className="bg-surface px-3 py-2.5">
-            <div className="text-[10.5px] text-ink-3">{k}</div>
+            <div className="text-[11px] text-ink-3">{k}</div>
             <div className="mt-1 text-[16px] font-medium leading-none text-ink-1 tnum">{v}</div>
-            <div className="mt-1.5 text-[10px] leading-snug text-ink-3/80">{d}</div>
+            <div className="mt-1.5 text-[10.5px] leading-snug text-ink-3/80">{d}</div>
           </div>
         ))}
       </div>
@@ -563,12 +571,12 @@ function DiagPanel({ diag, error }) {
       {diag.notes && diag.notes.length > 0 && (
         <ul className="mt-2 space-y-1">
           {diag.notes.map((t, i) => (
-            <li key={i} className="text-[11px] leading-relaxed text-ink-3">{t}</li>
+            <li key={i} className="text-[11.5px] leading-relaxed text-ink-3">{t}</li>
           ))}
         </ul>
       )}
 
-      <p className="mt-3 border-t border-line pt-2.5 text-[10.5px] leading-relaxed text-ink-3/80">
+      <p className="mt-3 border-t border-line pt-2.5 text-[11px] leading-relaxed text-ink-3/80">
         样张只能判断这张图够不够用，<b className="font-medium text-ink-3">推不出视野与精度</b>——
         图片里没有标定尺。那两项由图纸或人工给定。
       </p>
@@ -578,15 +586,15 @@ function DiagPanel({ diag, error }) {
 
 function SpecCard({ icon: Icon, label, value, lines = [], foot, bar }) {
   return (
-    <div className="rounded-[12px] border border-line bg-surface p-3.5 transition-colors hover:border-line-2">
-      <div className="flex items-center gap-1.5 text-[10.5px] uppercase tracking-[0.08em] text-ink-3">
+    <div className="interactive rounded-[12px] border border-line bg-surface p-3.5 hover:border-line-2">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-ink-3">
         <Icon size={12} strokeWidth={1.8} className="text-accent" />
         {label}
       </div>
       <div className="mt-2 text-[19px] font-medium leading-tight tracking-[-0.01em] text-ink-1 tnum">
         {value}
       </div>
-      <div className="mt-2 space-y-[3px]">
+      <div className="mt-2 space-y-1">
         {lines.filter(Boolean).map((l, i) => (
           <div key={i} className="text-[11.5px] leading-relaxed text-ink-3 tnum">{l}</div>
         ))}
@@ -598,7 +606,7 @@ function SpecCard({ icon: Icon, label, value, lines = [], foot, bar }) {
           </div>
         </div>
       )}
-      {foot && <div className="mt-2 text-[10.5px] text-ink-3/80 tnum">{foot}</div>}
+      {foot && <div className="mt-2 text-[11px] text-ink-3/80 tnum">{foot}</div>}
     </div>
   )
 }

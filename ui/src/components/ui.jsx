@@ -49,7 +49,7 @@ export function Field({ label, hint, htmlFor, children }) {
     <label htmlFor={htmlFor} className="block">
       <span className="mb-1.5 flex items-baseline justify-between gap-2">
         <span className="text-[11px] text-ink-3">{label}</span>
-        {hint && <span className="text-[10.5px] text-ink-3/70 tnum">{hint}</span>}
+        {hint && <span className="text-[11px] text-ink-3/70 tnum">{hint}</span>}
       </span>
       {children}
     </label>
@@ -72,7 +72,7 @@ export function Stat({ label, value, sub, tone = 'default', className = '' }) {
   }[tone]
   return (
     <div className={`interactive rounded-[10px] border border-line bg-surface px-3.5 py-3 hover:border-line-2 ${className}`}>
-      <div className="text-[10.5px] tracking-[0.06em] text-ink-3">{label}</div>
+      <div className="text-[11px] tracking-[0.06em] text-ink-3">{label}</div>
       <div className={`mt-1.5 text-[19px] font-medium leading-tight tracking-[-0.01em] tnum ${toneCls}`}>
         {value}
       </div>
@@ -90,7 +90,7 @@ export function Chip({ tone = 'neutral', children, className = '' }) {
     fail: 'border-fail/35 bg-fail/10 text-fail',
   }[tone]
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-[6px] border px-2 py-0.5 text-[10.5px] tnum ${cls} ${className}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-[6px] border px-2 py-0.5 text-[11px] tnum ${cls} ${className}`}>
       {children}
     </span>
   )
@@ -105,7 +105,7 @@ export function Table({ head, children, className = '' }) {
             {head.map((h, i) => (
               <th
                 key={i}
-                className="border-b border-line bg-surface-2 px-2.5 py-2 text-left text-[10px] font-medium uppercase tracking-[0.07em] text-ink-3"
+                className="border-b border-line bg-surface-2 px-3 py-2.5 text-left text-[10.5px] font-medium uppercase tracking-[0.07em] text-ink-3"
                 style={h.width ? { width: h.width } : undefined}
               >
                 {h.label}
@@ -122,8 +122,8 @@ export function Table({ head, children, className = '' }) {
 export function Td({ mono, dim, className = '', children }) {
   return (
     <td
-      className={`border-b border-line/60 px-2.5 py-2 align-top leading-relaxed ${
-        mono ? 'font-mono text-[11.5px] text-accent' : dim ? 'text-[11px] text-ink-3' : 'text-ink-2'
+      className={`border-b border-line/60 px-3 py-2.5 align-top leading-relaxed ${
+        mono ? 'font-mono text-[11.5px] text-ink-1' : dim ? 'text-[11.5px] text-ink-3' : 'text-ink-2'
       } ${className}`}
     >
       {children}
@@ -134,7 +134,7 @@ export function Td({ mono, dim, className = '', children }) {
 /* ── 三种状态：空 / 载入 / 错误，任何异步区域都必须覆盖 ────────── */
 export function Empty({ icon: Icon = Inbox, title, desc, action }) {
   return (
-    <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+    <div className="flex min-h-[300px] flex-col items-center justify-center px-6 py-14 text-center">
       <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-line bg-surface-2">
         <Icon size={17} strokeWidth={1.6} className="text-ink-3" />
       </div>

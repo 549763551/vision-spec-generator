@@ -108,13 +108,13 @@ export default function Home() {
 
       {/* ── 四步 ───────────────────────────────────────────── */}
       <section className="border-t border-line py-14">
-        <h2 className="text-[10.5px] uppercase tracking-[0.11em] text-ink-3">怎么走完一次</h2>
+        <h2 className="text-[11px] uppercase tracking-[0.11em] text-ink-3">怎么走完一次</h2>
         <div className="mt-7 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
           {steps.map((s) => (
             <div key={s.k} className="relative">
               <div className="flex items-center gap-2.5">
                 <s.icon size={16} strokeWidth={1.7} className="text-accent" />
-                <span className="text-[10.5px] tracking-[0.08em] text-ink-3 tnum">{s.k}</span>
+                <span className="text-[11px] tracking-[0.08em] text-ink-3 tnum">{s.k}</span>
               </div>
               <h3 className="mt-3 text-[14px] text-ink-1">{s.t}</h3>
               <p className="mt-1.5 text-[11.5px] leading-relaxed text-ink-3">{s.d}</p>
@@ -155,8 +155,8 @@ function SampleCard() {
   return (
     <div className="rounded-[14px] border border-line bg-surface">
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <span className="text-[10.5px] uppercase tracking-[0.1em] text-ink-3">示例输出</span>
-        <span className="text-[10.5px] text-ink-3 tnum">15×12 mm · 0.03 mm</span>
+        <span className="text-[11px] uppercase tracking-[0.1em] text-ink-3">示例输出</span>
+        <span className="text-[11px] text-ink-3 tnum">15×12 mm · 0.03 mm</span>
       </div>
       <div className="divide-y divide-line">
         {SAMPLE.map(([k, v, d]) => (
@@ -185,7 +185,7 @@ function Entry({ to, href, eyebrow, title, desc, tags }) {
       {...props}
       className="group interactive relative flex flex-col rounded-[14px] border border-line bg-surface p-6 hover:-translate-y-0.5 hover:border-accent/30 hover:bg-surface-2 hover:shadow-[0_10px_30px_-18px_#000]"
     >
-      <span className="text-[10.5px] uppercase tracking-[0.1em] text-ink-3">{eyebrow}</span>
+      <span className="text-[11px] uppercase tracking-[0.1em] text-ink-3">{eyebrow}</span>
       <h3 className="mt-2 flex items-center gap-2 text-[17px]">
         {title}
         <ArrowRight
@@ -196,7 +196,7 @@ function Entry({ to, href, eyebrow, title, desc, tags }) {
       <p className="mt-2 max-w-[42ch] text-[12px] leading-relaxed text-ink-3">{desc}</p>
       <div className="mt-5 flex flex-wrap gap-1.5">
         {tags.map((t) => (
-          <span key={t} className="rounded-[5px] border border-line px-2 py-0.5 text-[10.5px] text-ink-3">
+          <span key={t} className="rounded-[5px] border border-line px-2 py-0.5 text-[11px] text-ink-3">
             {t}
           </span>
         ))}

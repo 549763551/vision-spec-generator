@@ -39,13 +39,13 @@ export default function About() {
       </p>
 
       <section className="mt-14">
-        <h2 className="text-[10.5px] uppercase tracking-[0.11em] text-ink-3">计算依据</h2>
+        <h2 className="text-[11px] uppercase tracking-[0.11em] text-ink-3">计算依据</h2>
         <div className="mt-4 overflow-hidden rounded-[12px] border border-line">
           <table className="w-full border-collapse text-[12px]">
             <thead>
               <tr>
                 {['量', '关系式', '依据'].map((h, i) => (
-                  <th key={h} className="border-b border-line bg-surface-2 px-3 py-2 text-left text-[10px] font-medium uppercase tracking-[0.07em] text-ink-3"
+                  <th key={h} className="border-b border-line bg-surface-2 px-3 py-2.5 text-left text-[10.5px] font-medium uppercase tracking-[0.07em] text-ink-3"
                     style={{ width: i === 0 ? '18%' : i === 2 ? '24%' : undefined }}>
                     {h}
                   </th>
@@ -55,9 +55,9 @@ export default function About() {
             <tbody>
               {rows.map((r) => (
                 <tr key={r[0]} className="transition-colors hover:bg-surface-2/60">
-                  <td className="border-b border-line/60 px-3 py-2 text-ink-3">{r[0]}</td>
-                  <td className="border-b border-line/60 px-3 py-2 font-mono text-[11.5px] text-accent">{r[1]}</td>
-                  <td className="border-b border-line/60 px-3 py-2 text-[11px] text-ink-3">{r[2]}</td>
+                  <td className="border-b border-line/60 px-3 py-2.5 text-ink-2">{r[0]}</td>
+                  <td className="border-b border-line/60 px-3 py-2.5 font-mono text-[11.5px] text-ink-1">{r[1]}</td>
+                  <td className="border-b border-line/60 px-3 py-2.5 text-[11.5px] text-ink-3">{r[2]}</td>
                 </tr>
               ))}
             </tbody>
@@ -66,7 +66,7 @@ export default function About() {
       </section>
 
       <section className="mt-14">
-        <h2 className="text-[10.5px] uppercase tracking-[0.11em] text-ink-3">它做不到什么</h2>
+        <h2 className="text-[11px] uppercase tracking-[0.11em] text-ink-3">它做不到什么</h2>
         <div className="mt-4 divide-y divide-line rounded-[12px] border border-line bg-surface">
           {fails.map(([t, d]) => (
             <div key={t} className="px-4 py-3.5">
@@ -78,18 +78,18 @@ export default function About() {
       </section>
 
       <section className="mt-14">
-        <h2 className="text-[10.5px] uppercase tracking-[0.11em] text-ink-3">四次改动</h2>
+        <h2 className="text-[11px] uppercase tracking-[0.11em] text-ink-3">四次改动</h2>
         <div className="mt-4 space-y-3">
           {iter.map(([t, before, after]) => (
             <div key={t} className="rounded-[12px] border border-line bg-surface p-4">
               <div className="text-[12.5px] text-ink-1">{t}</div>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 <div className="rounded-[8px] bg-surface-2 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-[0.08em] text-ink-3">改之前</div>
+                  <div className="text-[10.5px] uppercase tracking-[0.08em] text-ink-3">改之前</div>
                   <div className="mt-1 text-[11.5px] leading-relaxed text-ink-3">{before}</div>
                 </div>
                 <div className="rounded-[8px] border border-accent/25 bg-accent-soft/40 px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-[0.08em] text-accent/80">改之后</div>
+                  <div className="text-[10.5px] uppercase tracking-[0.08em] text-accent/80">改之后</div>
                   <div className="mt-1 text-[11.5px] leading-relaxed text-ink-2">{after}</div>
                 </div>
               </div>

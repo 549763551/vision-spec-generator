@@ -54,7 +54,7 @@ export default function AppShell({ children }) {
           </nav>
 
           <div className="ml-auto hidden items-center gap-3 sm:flex">
-            <span className="hidden text-[10.5px] tracking-[0.04em] text-ink-3/80 tnum sm:block">
+            <span className="hidden text-[11px] tracking-[0.04em] text-ink-3/80 tnum sm:block">
               {version || '—'}
             </span>
           </div>
