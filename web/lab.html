@@ -132,6 +132,14 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
 .cam-tag.live i{background:var(--warn); box-shadow:0 0 7px var(--warn)}
 #scene.orbitable{cursor:grab}
 #scene.spinning{cursor:grabbing}
+.view-seg{display:flex; gap:4px; margin-top:11px}
+.view-seg button{
+  flex:1; padding:6px 0; border-radius:7px; font-size:11px;
+  border:1px solid var(--line); background:var(--surface2); color:var(--ink3);
+  transition:all 140ms var(--ease-snappy);
+}
+.view-seg button:hover{color:var(--ink1); border-color:var(--line2)}
+.view-seg button.on{border-color:var(--accent); color:var(--accent-hi); background:var(--accent-soft); box-shadow:0 0 0 1px #2fd3c526}
 .nav-hint{
   position:absolute; left:50%; bottom:26px; transform:translateX(-50%); z-index:3;
   display:flex; align-items:center; gap:7px; padding:6px 14px; border-radius:999px;
@@ -273,15 +281,20 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
         <label class="check-row"><input id="showFov" type="checkbox" checked />相机视野框</label>
         <label class="check-row"><input id="showHard" type="checkbox" checked />支架与灯具实体</label>
         <label class="check-row"><input id="lockView" type="checkbox" />锁定基准机位（不响应拖拽）</label>
+        <div class="view-seg" id="viewSeg">
+          <button data-view="rig" class="on">机台全景</button>
+          <button data-view="macro">打光特写</button>
+        </div>
         <div class="control">
           <div class="control-head"><label for="sExpo">相机曝光（仅小窗）</label><output id="oExpo">×1.0</output></div>
           <input id="sExpo" type="range" min="30" max="300" step="5" value="100" />
         </div>
         <button class="btn-reset" id="btnView">复位观察机位</button>
         <div class="note">
-          主视图<b>默认停在面阵相机轴向高位</b>，在画布上拖拽即可 360° 环视（水平不限位）、滚轮缩放、双击复位。
-          勾选「锁定基准机位」后回到基准并禁用拖拽，保证观测基准不动。
-          右下角小窗始终是<b>相机实拍画面</b>，不随主视图旋转，曝光独立可调。
+          <b>机台全景</b>看立柱、横臂、相机夹与光源夹的整体结构；<b>打光特写</b>回到只框光源与工件的近景。
+          两者都可在画布上拖拽 360° 环视、滚轮缩放、双击复位。
+          勾选「锁定基准机位」后回到基准并禁用拖拽。
+          右下角小窗始终是<b>相机实拍画面</b>，不随主视图旋转，曝光独立可调；
           判断打光对不对，仍以小窗的明暗与阴影为准。
         </div>
       </section>
@@ -346,7 +359,7 @@ const S = {
   wd: clamp(parseFloat(qs.get('wd')) || 160, 80, 400),
   on: true, bright: 75, tint: 'white', cct: 5000,
   h: 80, tilt: 78, azim: 0,
-  exposure: 1.0, lockView: false,
+  exposure: 1.0, lockView: false, view: 'rig',
   beam: true, fovBox: true, hardware: true,
 };
 
@@ -381,6 +394,20 @@ const pmrem = new T.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new T.RoomEnvironment(), 0.06).texture;
 scene.environmentIntensity = 0.3;
 scene.add(new T.AmbientLight(0x8fb6c8, 0.16));
+// 机台轮廓光：只负责让黑色铝型材在暗场里看得出结构，不投影、不参与打光判定
+const rimFill = new T.DirectionalLight(0x9fc0d2, 0.30);
+rimFill.position.set(-6, 9, 7);
+rimFill.castShadow = false;
+scene.add(rimFill);
+const rimFill2 = new T.DirectionalLight(0x6f8b9c, 0.16);
+rimFill2.position.set(7, 5, -6);
+scene.add(rimFill2);
+// 造型光强度随视图切换：全景要看清机台结构，特写要保持真实布光不被冲淡
+function updateFill() {
+  const rig = S.view === 'rig';
+  rimFill.intensity = rig ? 0.62 : 0.20;
+  rimFill2.intensity = rig ? 0.34 : 0.10;
+}
 
 const composer = new T.EffectComposer(renderer);
 composer.addPass(new T.RenderPass(scene, mainCam));
@@ -399,6 +426,12 @@ const MAT = {
   lens:   std(0x1b2126, 0.72, 0.3),
   plate:  std(0x434b4f, 0.45, 0.55),
   part:   std(0x9aa4a8, 0.78, 0.36),
+  rail:   std(0x4a5459, 0.84, 0.34),   // 阳极氧化铝型材：立柱 / 悬臂
+  slot:   std(0x0b0f11, 0.45, 0.72),   // T 槽 / 安装孔
+  base:   std(0x30373a, 0.66, 0.50),   // 机台底板
+  knob:   std(0x4c5559, 0.72, 0.40),   // 锁紧旋钮
+  bolt:   std(0x8b969a, 0.88, 0.28),   // 手拧螺丝
+  led:    new T.MeshBasicMaterial({ color: 0x2fd3c5 }),
   glass:  new T.MeshStandardMaterial({ color: 0xbfe7e2, metalness: 0.9, roughness: 0.06,
             transparent: true, opacity: 0.3, side: T.DoubleSide }),
   emit:   new T.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2.4,
@@ -407,6 +440,8 @@ const MAT = {
 };
 MAT.part.envMapIntensity = 0.75;
 MAT.plate.envMapIntensity = 0.4;
+MAT.rail.envMapIntensity = 1.5;
+MAT.base.envMapIntensity = 1.1;
 
 /* 表面微结构：掠射光能"抓"到划痕，角度一变亮灭就变 */
 const scratchTex = (() => {
@@ -508,25 +543,34 @@ function buildCamRig() {
   clearGroup(camRig);
   lensFront = S.wd / U;
   const lensLen = clamp(2.4 + S.wd / 220, 2.4, 4.2);
-  const lens = new T.Mesh(new T.CylinderGeometry(0.17, 0.17, lensLen, 32), MAT.lens);
+  const lens = new T.Mesh(new T.CylinderGeometry(0.52, 0.52, lensLen, 32), MAT.lens);
   lens.position.y = lensFront + lensLen / 2;
   lens.castShadow = true; camRig.add(lens);
-  const hood = new T.Mesh(new T.TorusGeometry(0.175, 0.022, 10, 32), MAT.body);
+  const hood = new T.Mesh(new T.TorusGeometry(0.54, 0.035, 10, 32), MAT.body);
   hood.rotation.x = Math.PI / 2; hood.position.y = lensFront + 0.02; camRig.add(hood);
-  const collar = new T.Mesh(new T.CylinderGeometry(0.2, 0.2, 0.26, 28), MAT.body);
-  collar.position.y = lensFront + 0.16; camRig.add(collar);
+  // 调焦环：真实镜头中段有一圈滚花环，也是「这是支镜头」的关键特征
+  const focus = new T.Mesh(new T.CylinderGeometry(0.575, 0.575, lensLen * 0.28, 32), MAT.body);
+  focus.position.y = lensFront + lensLen * 0.62; camRig.add(focus);
+  const collar = new T.Mesh(new T.CylinderGeometry(0.6, 0.6, 0.30, 28), MAT.body);
+  collar.position.y = lensFront + lensLen - 0.10; camRig.add(collar);
 
-  const bodyH = 4.2, bodyW = 2.8;
+  const bodyH = 3.0, bodyW = 2.0;
   const body = new T.Mesh(new T.BoxGeometry(bodyW, bodyH, bodyW), MAT.cam);
   body.position.y = lensFront + lensLen + bodyH / 2;
   body.castShadow = true; camRig.add(body);
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    const fin = new T.Mesh(new T.BoxGeometry(0.13, bodyH * 0.82, 0.13), MAT.body);
-    fin.position.set(sx * (bodyW / 2 + 0.065), body.position.y, sz * (bodyW / 2 + 0.065));
+    const fin = new T.Mesh(new T.BoxGeometry(0.10, bodyH * 0.84, 0.10), MAT.body);
+    fin.position.set(sx * (bodyW / 2 + 0.05), body.position.y, sz * (bodyW / 2 + 0.05));
     camRig.add(fin);
   }
-  const back = new T.Mesh(new T.BoxGeometry(bodyW * 0.8, bodyH * 0.5, 0.12), MAT.dark);
-  back.position.set(0, body.position.y + 1.3, 0); camRig.add(back);
+  const back = new T.Mesh(new T.BoxGeometry(bodyW * 0.86, bodyH * 0.42, 0.10), MAT.dark);
+  back.position.set(0, body.position.y + bodyH * 0.26, -bodyW / 2 - 0.04); camRig.add(back);
+  for (const sx of [-0.42, 0.42]) {
+    const plug = new T.Mesh(new T.CylinderGeometry(0.12, 0.12, 0.16, 10), MAT.body);
+    plug.rotation.x = Math.PI / 2;
+    plug.position.set(sx, body.position.y - bodyH * 0.16, -bodyW / 2 - 0.10);
+    camRig.add(plug);
+  }
 
   camCam.position.set(0, lensFront - 0.02, 0);
   camCam.rotation.set(-Math.PI / 2, 0, 0);
@@ -535,22 +579,119 @@ function buildCamRig() {
   camCam.updateProjectionMatrix();
 }
 
+/* ── 面阵相机实验台 ───────────────────────────────────────────
+   真实机台由「立柱底座 + 横臂滑台 + 相机接口板 + 光源夹持组件」四部分构成。
+   旧版用三根细杆把光源斜拉到画面外的相机上，看起来像吊线；这里改为
+   立柱铝型材 + 两个上下滑块 + 两条水平方铝悬臂，相机与光源都刚性夹在悬臂末端。
+   立柱固定在机台后方（-Z），不随方位角旋转，避免绕到前方挡住工件。
+   尺寸按视野等比示意；光学 WD 仍只用于小窗取景与视场角。 */
+const STAND = { w: 8.6, d: 9.2, colZ: -4.30, colW: 0.86 };
+function boxAt(w, h, d, mat, x, y, z, parent) {
+  const m = new T.Mesh(new T.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  m.castShadow = true; m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+function cylAt(r, h, mat, x, y, z, axis, parent) {
+  const m = new T.Mesh(new T.CylinderGeometry(r, r, h, 16), mat);
+  m.position.set(x, y, z);
+  if (axis === 'x') m.rotation.z = Math.PI / 2;
+  if (axis === 'z') m.rotation.x = Math.PI / 2;
+  m.castShadow = true;
+  parent.add(m);
+  return m;
+}
 function buildBracket() {
   clearGroup(bracket);
   if (!S.hardware) return;
-  const y0 = S.h / U;
+
+  const lightY = lightGroup ? lightGroup.position.y : S.h / U;
   const rad = (lightDim && lightDim.r) || 1.2;
-  bracket.rotation.y = S.azim * D2R;
-  const top = new T.Vector3(0, lensFront + 0.1, 0);
-  for (let i = 0; i < 3; i++) {
-    const a = (i / 3) * Math.PI * 2 + Math.PI / 6;
-    const from = new T.Vector3(Math.cos(a) * rad * 0.66, y0 + 0.09, Math.sin(a) * rad * 0.66);
-    bracket.add(rod(from, top, 0.026, MAT.dark));
+  const lensLen = clamp(2.4 + S.wd / 220, 2.4, 4.2);
+  const camBodyY = lensFront + lensLen + 1.5;        // 相机机身中心（bodyH = 3.0）
+  const colTop = lensFront + lensLen + 3.0 + 1.2;    // 立柱顶（高于机身）
+  const colBot = -0.44, colH = colTop - colBot, colY = (colTop + colBot) / 2;
+  const CZ = STAND.colZ, CW = STAND.colW;
+
+  // ① 实心底板 + 两条 T 槽导轨 + 四只底脚
+  boxAt(STAND.w, 0.72, STAND.d, MAT.base, 0, -0.80, -0.60, bracket);
+  for (const z of [3.15, 3.45]) {
+    boxAt(7.0, 0.10, 0.24, MAT.rail, 0, -0.39, z, bracket);
+    boxAt(7.0, 0.012, 0.075, MAT.slot, 0, -0.334, z, bracket);
   }
-  const clampRing = new T.Mesh(new T.TorusGeometry(0.215, 0.032, 8, 28), MAT.body);
-  clampRing.rotation.x = Math.PI / 2;
-  clampRing.position.y = lensFront + 0.1;
-  bracket.add(clampRing);
+  for (const x of [-3.7, 3.7]) for (const z of [-4.75, 3.25])
+    cylAt(0.17, 0.16, MAT.dark, x, -1.20, z, 'y', bracket);
+
+  // 前面板：小屏 + 指示灯 + 旋钮
+  const fz = 3.83;
+  boxAt(3.0, 0.34, 0.03, MAT.slot, 0, -0.78, fz, bracket);
+  boxAt(0.90, 0.22, 0.02, MAT.lens, 0.75, -0.78, fz + 0.02, bracket);
+  for (let i = 0; i < 3; i++)
+    cylAt(0.055, 0.02, i === 0 ? MAT.led : MAT.knob, -1.10 + i * 0.28, -0.78, fz + 0.03, 'z', bracket);
+  cylAt(0.13, 0.10, MAT.knob, 1.48, -0.78, fz + 0.05, 'z', bracket);
+
+  // ② 立柱：方铝型材，正面双 T 槽 + 一列安装孔 + 顶盖 + 根部法兰
+  boxAt(CW, colH, CW, MAT.rail, 0, colY, CZ, bracket);
+  for (const sx of [-1, 1]) {
+    boxAt(0.075, colH - 0.24, 0.014, MAT.slot, sx * 0.27, colY, CZ + CW / 2 + 0.008, bracket);
+    boxAt(0.014, colH - 0.24, 0.075, MAT.slot, sx * (CW / 2 + 0.008), colY, CZ, bracket);
+  }
+  for (let y = 0.25; y < colTop - 0.35; y += 0.62)
+    cylAt(0.048, 0.024, MAT.slot, 0, y, CZ + CW / 2 + 0.014, 'z', bracket);
+  boxAt(CW + 0.14, 0.10, CW + 0.14, MAT.dark, 0, colTop + 0.05, CZ, bracket);
+  boxAt(1.35, 0.16, 1.35, MAT.dark, 0, colBot + 0.08, CZ, bracket);
+
+  // ③ 滑块 + 水平方铝悬臂（两个高度各一套）
+  function slider(y, armEndZ, armW, armH, dropLen) {
+    boxAt(CW + 0.32, 0.84, CW + 0.32, MAT.dark, 0, y, CZ, bracket);
+    boxAt(CW + 0.36, 0.14, CW + 0.36, MAT.rail, 0, y + 0.35, CZ, bracket);
+    cylAt(0.145, 0.20, MAT.knob, (CW + 0.32) / 2 + 0.10, y, CZ, 'x', bracket);
+    cylAt(0.05, 0.06, MAT.bolt, (CW + 0.32) / 2 + 0.22, y, CZ, 'x', bracket);
+    const z0 = CZ + CW / 2, z1 = armEndZ;
+    const len = Math.max(z1 - z0, 0.2), zm = (z0 + z1) / 2;
+    boxAt(armW, armH, len, MAT.rail, 0, y, zm, bracket);
+    boxAt(armW * 0.42, 0.012, len - 0.08, MAT.slot, 0, y + armH / 2 + 0.006, zm, bracket);
+    // 悬臂末端的下挂立柱：光源/相机挂在臂端下方，不是吊在臂端上方
+    if (dropLen) boxAt(armW * 0.9, dropLen, armW * 0.9, MAT.rail, 0, y - dropLen / 2, z1 + armW * 0.45, bracket);
+  }
+
+  // 相机接口板 + 两侧夹爪：机身半宽 1.0，板贴在机身后表面（z = -1.0），夹爪抱住两侧
+  slider(camBodyY, -1.12, 0.34, 0.30, 0);
+  boxAt(2.36, 1.90, 0.12, MAT.dark, 0, camBodyY + 0.15, -1.06, bracket);
+  for (const sx of [-1, 1]) {
+    boxAt(0.16, 1.90, 1.00, MAT.rail, sx * 1.14, camBodyY + 0.15, -0.55, bracket);
+    cylAt(0.095, 0.14, MAT.knob, sx * 1.24, camBodyY + 0.72, -0.10, 'x', bracket);
+  }
+
+  // 光源夹持组件：真实机台用 L 型支架——横臂越到灯体上方，再由刚性立柱下探，
+  // 末端夹座咬住灯体后缘。这样夹具永远在灯体外侧，不会被灯体挡住像悬空。
+  const mz = (lightDim && lightDim.mz !== undefined) ? lightDim.mz : -rad;
+  const top = (lightDim && lightDim.top !== undefined) ? lightDim.top : 0.25;
+  const dual = (lightDim && lightDim.dual) || 0;
+  const armY = lightY + top + 0.34;                 // 横臂在灯体上方
+  const clampY = lightY + Math.min(top * 0.5, 0.24); // 夹座咬在灯体后缘中下部
+  const dropLen = Math.max(armY - clampY, 0.2);
+  const armEnd = mz - 0.06;
+  slider(armY, armEnd, 0.30, 0.24, 0);
+  const dropH = armY - clampY;
+  if (dual) {
+    // 两条灯管分列 x = ±B：横担 + 两根刚性立柱 + 两个夹座
+    boxAt(dual * 2 + 0.42, 0.22, 0.24, MAT.rail, 0, armY, armEnd + 0.10, bracket);
+    for (const sx of [-1, 1]) {
+      boxAt(0.24, dropH, 0.24, MAT.rail, sx * dual, armY - dropH / 2, mz + 0.02, bracket);
+      boxAt(0.46, 0.42, 0.30, MAT.dark, sx * dual, clampY, mz + 0.06, bracket);
+      for (const s2 of [-1, 1])
+        boxAt(0.08, 0.28, 0.24, MAT.rail, sx * dual + s2 * 0.21, clampY - 0.10, mz + 0.06, bracket);
+    }
+  } else {
+    boxAt(0.24, dropH, 0.24, MAT.rail, 0, armY - dropH / 2, mz + 0.02, bracket);
+    boxAt(0.72, 0.42, 0.30, MAT.dark, 0, clampY, mz + 0.06, bracket);
+    for (const sx of [-1, 1])
+      boxAt(0.08, 0.28, 0.24, MAT.rail, sx * 0.33, clampY - 0.10, mz + 0.06, bracket);
+    cylAt(0.095, 0.12, MAT.knob, 0, clampY + 0.29, mz + 0.06, 'y', bracket);
+    cylAt(0.040, 0.08, MAT.bolt, 0, clampY + 0.37, mz + 0.06, 'y', bracket);
+  }
 }
 
 /* ── 光幕：整灯的柔和体光（不是一根根光线） ───────────────── */
@@ -720,7 +861,7 @@ function buildLightModel(geo) {
 
   if (shape === 'ring') {
     const R = clamp(fw * 0.55 + 12, 18, 44) / U;
-    lightDim = { r: R };
+    lightDim = { r: R, mz: -R, top: 0.23 };
     const housing = new T.Mesh(new T.TorusGeometry(R, 0.105, 16, 96), MAT.body);
     housing.rotation.x = Math.PI / 2; housing.position.y = 0.12;
     housing.castShadow = true; g.add(housing);
@@ -750,7 +891,7 @@ function buildLightModel(geo) {
   } else if (shape === 'bars') {
     const B = clamp(fw * 0.5 + 10, 18, 40) / U;
     const L = clamp(fw * 1.25 + 20, 40, 100) / U;
-    lightDim = { r: B + 0.28 };
+    lightDim = { r: B + 0.28, mz: -L / 2, top: 0.30, dual: B };
     for (const s of [-1, 1]) {
       const bar = new T.Mesh(new T.BoxGeometry(0.34, 0.30, L), MAT.body);
       bar.position.set(s * B, 0.15, 0); bar.castShadow = true; g.add(bar);
@@ -769,7 +910,7 @@ function buildLightModel(geo) {
   } else if (shape === 'panel') {
     const PW = clamp(fw + 26, 40, 100) / U;
     const PD = clamp(fh + 26, 34, 90) / U;
-    lightDim = { r: Math.max(PW, PD) * 0.55 };
+    lightDim = { r: Math.max(PW, PD) * 0.55, mz: -PD / 2, top: 0.17 };
     const frame = new T.Mesh(new T.BoxGeometry(PW, 0.16, PD), MAT.body);
     frame.position.y = 0.09; frame.castShadow = true; g.add(frame);
     const face = new T.Mesh(new T.PlaneGeometry(PW * 0.93, PD * 0.93), emitMat);
@@ -796,7 +937,7 @@ function buildLightModel(geo) {
     volSpec = { kind: 'slab', w: PW, d: PD, alpha: 0.32 };
 
   } else if (shape === 'coax') {
-    lightDim = { r: 0.34 };
+    lightDim = { r: 0.34, mz: -0.21, top: 0.44 };
     const W = 0.42;
     const shell = new T.Mesh(new T.BoxGeometry(W, W, W),
       new T.MeshStandardMaterial({ color: 0x2a3236, metalness: 0.8, roughness: 0.32, transparent: true, opacity: 0.28 }));
@@ -821,7 +962,7 @@ function buildLightModel(geo) {
 
   } else if (shape === 'dome') {
     const R = clamp(fw * 0.8 + 14, 26, 52) / U;
-    lightDim = { r: R };
+    lightDim = { r: R, mz: -R, top: R };
     const shell = new T.Mesh(new T.SphereGeometry(R, 44, 22, 0, Math.PI * 2, 0, Math.PI / 2),
       new T.MeshStandardMaterial({
         color: 0xe6f4f4, emissive: col.clone(), emissiveIntensity: 0.30,
@@ -846,7 +987,7 @@ function buildLightModel(geo) {
 
   } else if (shape === 'line') {
     const L = clamp(fw * 1.4 + 22, 44, 110) / U;
-    lightDim = { r: L * 0.3 };
+    lightDim = { r: L * 0.3, mz: -0.17, top: 0.30 };
     const bar = new T.Mesh(new T.BoxGeometry(L, 0.30, 0.34), MAT.body);
     bar.position.y = 0.15; bar.castShadow = true; g.add(bar);
     const face = new T.Mesh(new T.BoxGeometry(L * 0.95, 0.014, 0.27), emitMat);
@@ -866,7 +1007,7 @@ function buildLightModel(geo) {
   } else { // tunnel
     const R = clamp(fw * 0.75 + 16, 26, 50) / U;
     const L = clamp(fw * 1.3 + 24, 46, 110) / U;
-    lightDim = { r: R };
+    lightDim = { r: R, mz: -R, top: R };
     const tun = new T.Mesh(new T.CylinderGeometry(R, R, L, 48, 1, true, 0, Math.PI),
       new T.MeshStandardMaterial({
         color: 0xe6f4f4, emissive: col.clone(), emissiveIntensity: 0.28,
@@ -1105,16 +1246,34 @@ function syncVMHead() {
 }
 
 /* ── 主视图机位：默认锁在相机轴向高位，可切换 360° 环视 ───── */
-const CAM = { az: 0, el: 0.82, zoom: 1, dist: 20, look: new T.Vector3() };
+const CAM = { az: 0, el: 0.82, zoom: 1, dist: 20, look: new T.Vector3(), baseEl: 0.52, azBase: 0 };
 function placeMainCam() {
-  const yL = lightGeo && lightGeo.shape === 'coax' ? lensFront : S.h / U;
-  const top = Math.max(yL + 2.2, 5);
-  const bottom = -2.4;
+  const lensLen = clamp(2.4 + S.wd / 220, 2.4, 4.2);
+  const colTop = lensFront + lensLen + 3.0 + 1.2;
+  let top, bottom, halfW, el;
+  if (S.view === 'rig') {
+    // 整机：底板到立柱顶盖全部入画。相机本体在 WD 高处（160 mm → 16 单位），
+    // 旧取景只框到光源（y≈10），相机与立柱上半截被裁掉，才显得光源是「吊」着的。
+    top = colTop + 1.4;
+    bottom = -1.6;
+    halfW = STAND.w * 0.52;
+    el = 0.52;
+  } else {
+    const yL = lightGeo && lightGeo.shape === 'coax' ? lensFront : S.h / U;
+    top = Math.max(yL + 2.4, 5);
+    bottom = -2.4;
+    halfW = lightDim ? Math.min(lightDim.r, 6) : 1;
+    el = 0.82;
+  }
   const halfSpan = (top - bottom) / 2;
-  const rLight = lightDim ? Math.min(lightDim.r, halfSpan * 1.1) : 1;
-  const radius = Math.sqrt(halfSpan * halfSpan + rLight * rLight) * 1.02;
+  const radius = Math.sqrt(halfSpan * halfSpan + halfW * halfW) * 1.02;
   CAM.dist = radius / Math.sin(mainCam.fov * D2R / 2) * 1.04;
   CAM.look.set(0, (top + bottom) / 2 - 0.3, 0);
+  CAM.baseEl = el;
+  // 全景默认偏 26°：悬臂沿 Z 伸出，正对时与视线重合会被压成一个点，又像悬空。
+  // 特写保持正对，基准与打光判定一致。
+  CAM.azBase = S.view === 'rig' ? 26 * D2R : 0;
+  updateFill();
   applyCam();
 }
 function applyCam() {
@@ -1131,17 +1290,27 @@ function applyCam() {
   updateViewTag();
 }
 function resetView() {
-  CAM.az = 0; CAM.el = 0.82; CAM.zoom = 1;
+  CAM.az = CAM.azBase; CAM.el = CAM.baseEl; CAM.zoom = 1;
+  applyCam();
+}
+function setView(v) {
+  S.view = v;
+  document.querySelectorAll('#viewSeg button').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  CAM.zoom = 1;
+  placeMainCam();
+  CAM.el = CAM.baseEl;
+  CAM.az = CAM.azBase;
   applyCam();
 }
 function updateViewTag() {
   const deg = ((Math.round(CAM.az * 180 / Math.PI) % 360) + 360) % 360;
   const el = Math.round(CAM.el * 180 / Math.PI);
   // 以「是否偏离基准」判断，而不是以开关判断：拖过就标方位，双击回位就回到「基准」
-  const atBase = Math.abs(CAM.az) < 0.005 && Math.abs(CAM.el - 0.82) < 0.005 && Math.abs(CAM.zoom - 1) < 0.01;
+  const atBase = Math.abs(CAM.az - CAM.azBase) < 0.005 && Math.abs(CAM.el - CAM.baseEl) < 0.005 && Math.abs(CAM.zoom - 1) < 0.01;
+  const mode = S.view === 'rig' ? '机台全景' : '打光特写';
   $('camTagTxt').innerHTML = atBase
-    ? '面阵相机轴向高位 · 基准'
-    : `360° 环视 · 方位 ${deg}° · 俯仰 ${el}°`;
+    ? `${mode} · 基准`
+    : `${mode} · 方位 ${deg}° · 俯仰 ${el}°`;
   $('camTag').classList.toggle('live', !atBase);
 }
 
@@ -1218,7 +1387,9 @@ $('showFov').addEventListener('change', (e) => { S.fovBox = e.target.checked; fo
 $('showHard').addEventListener('change', (e) => {
   S.hardware = e.target.checked;
   if (lightGroup.userData.model) lightGroup.userData.model.visible = S.hardware;
+  camRig.visible = S.hardware;
   buildBracket();
+  if (!S.hardware && S.view === 'rig') setView('macro');
 });
 $('btnReset').addEventListener('click', () => {
   const d = DEF[S.series] || DEF.RS;
@@ -1268,6 +1439,10 @@ $('lockView').addEventListener('change', (e) => {
   if (S.lockView) { resetView(); hideHint(); }
 });
 $('btnView').addEventListener('click', resetView);
+$('viewSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (b && b.dataset.view !== S.view) setView(b.dataset.view);
+});
 canvas.classList.add('orbitable');
 setTimeout(hideHint, 9000);
 
@@ -1333,6 +1508,7 @@ async function boot() {
   $('sBright').value = S.bright; $('sCct').value = S.cct;
   applyMount();
   placeMainCam();
+  CAM.az = CAM.azBase; CAM.el = CAM.baseEl; applyCam();   // 首屏即四分之三基准
   fovFrame.visible = S.fovBox;
   syncVMHead();
   frame();
