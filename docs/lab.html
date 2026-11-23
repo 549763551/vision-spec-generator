@@ -264,6 +264,9 @@ input[type=range]::-moz-range-thumb{width:13px; height:13px; border-radius:50%; 
           <button class="chip" data-tint="blue">蓝光</button>
           <button class="chip" data-tint="red">红光</button>
           <button class="chip" data-tint="green">绿光</button>
+          <button class="chip" data-tint="yellow">黄光</button>
+          <button class="chip" data-tint="ir">红外</button>
+          <button class="chip" data-tint="cyan">青光</button>
         </div>
         <div class="control" id="wrapCct">
           <div class="control-head"><label for="sCct">色温</label><output id="oCct">5000 K</output></div>
@@ -372,13 +375,24 @@ const U = 10;                       // 1 场景单位 = 10 mm
 const DOWN = new T.Vector3(0, -1, 0);
 
 /* ── 状态 ─────────────────────────────────────────────────── */
+/* 光源色：与选型助手的 color 字段同名。红外人眼不可见，这里只给一个可视化色，
+   不代表定量光谱；色温只对白光有意义。 */
+const TINT_LABEL = {
+  white: '白光', blue: '蓝光', red: '红光', green: '绿光',
+  yellow: '黄光', ir: '红外', cyan: '青光',
+};
+const TINT_RGB = {
+  blue: [0.36, 0.56, 1.0], red: [1.0, 0.26, 0.17], green: [0.34, 1.0, 0.55],
+  yellow: [1.0, 0.78, 0.22], ir: [0.55, 0.25, 0.75], cyan: [0.25, 0.85, 0.95],
+};
+const validTint = (v) => (v && TINT_LABEL[v] ? v : 'white');
 const qs = new URLSearchParams(location.search);
 const S = {
   series: qs.get('series') || 'RS',
   fovW: parseFloat((qs.get('fov') || '15x12').split('x')[0]) || 15,
   fovH: parseFloat((qs.get('fov') || '15x12').split('x')[1]) || 12,
   wd: clamp(parseFloat(qs.get('wd')) || 160, 80, 400),
-  on: true, bright: 75, tint: 'white', cct: 5000,
+  on: true, bright: 75, tint: validTint(qs.get('tint')), cct: 5000,
   h: 80, tilt: 78, azim: 0,
   exposure: 1.0, lockView: false, view: 'rig',
   beam: true, fovBox: true, hardware: true,
@@ -933,9 +947,7 @@ let hemi = null;
 let volSpec = null;
 
 function lampRGB() {
-  if (S.tint !== 'white') {
-    return { blue: [0.36, 0.56, 1.0], red: [1.0, 0.26, 0.17], green: [0.34, 1.0, 0.55] }[S.tint];
-  }
+  if (S.tint !== 'white') return TINT_RGB[S.tint];
   const t = S.cct / 100;
   let r, g, b;
   if (t <= 66) {
@@ -1484,7 +1496,7 @@ function updateHud() {
   $('vmBright').textContent = Math.round(S.bright) + '%';
   $('vmBrightBar').style.width = (on ? S.bright : 0) + '%';
   $('vmCct').textContent = S.tint === 'white' ? (Math.round(S.cct / 100) * 100) + 'K' : '—';
-  const tn = { white: '白光', blue: '蓝光', red: '红光', green: '绿光' }[S.tint];
+  const tn = TINT_LABEL[S.tint];
   $('vmTint').textContent = tn;
   $('vmTint').className = S.tint === 'white' ? '' : 'on';
   $('vmTilt').textContent = d.tiltable ? Math.round(S.tilt) + '°' : '—';
@@ -1639,8 +1651,7 @@ $('tintChips').addEventListener('click', (e) => {
   const b = e.target.closest('.chip');
   if (!b) return;
   S.tint = b.dataset.tint;
-  document.querySelectorAll('#tintChips .chip').forEach(c => c.classList.toggle('on', c === b));
-  $('wrapCct').classList.toggle('disabled', S.tint !== 'white');
+  syncTint();
   updatePower();
   updateHud();
 });
@@ -1720,6 +1731,14 @@ function syncControls(series) {
   $('wrapTilt').classList.toggle('disabled', !d.tiltable);
 }
 
+/* URL 带入的 tint 也要落到色片高亮与色温可用状态上。 */
+function syncTint() {
+  document.querySelectorAll('#tintChips .chip').forEach(c => {
+    c.classList.toggle('on', c.dataset.tint === S.tint);
+  });
+  $('wrapCct').classList.toggle('disabled', S.tint !== 'white');
+}
+
 async function fetchLab(series) {
   // 静态站（GitHub Pages）：数据由 lab-data.js 本地生成，
   // 与 core/scene.py::build_lab 的返回值逐字段等价，无需 Python 后端。
@@ -1766,6 +1785,7 @@ async function boot() {
   buildCamRig();
   buildLightModel(lightGeo);
   syncControls(S.series);
+  syncTint();
   $('sHeight').value = S.h; $('sTilt').value = S.tilt;
   $('sBright').value = S.bright; $('sCct').value = S.cct;
   applyMount();
