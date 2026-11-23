@@ -31,10 +31,18 @@ export default function Studio() {
   const [err, setErr] = useState('')
   const [drawNote, setDrawNote] = useState('')
   const [drawing, setDrawing] = useState(false)
+  const [img, setImg] = useState(null)   /* {dataUrl, name, size} */
   const fileRef = useRef(null)
 
   useEffect(() => {
-    const q = new URLSearchParams(location.search).get('preset')
+    const qs = new URLSearchParams(location.search)
+    if (qs.get('sample') === '1') {
+      setForm(EMPTY_FORM)
+      setImg({ dataUrl: '/sample/part.png', name: '内置合成样张', sample: true })
+      run(EMPTY_FORM, null, true)
+      return
+    }
+    const q = qs.get('preset')
     const hit = PRESETS.find((p) => p.k === q)
     if (hit) {
       const next = { ...EMPTY_FORM, task: hit.task, accuracy: hit.accuracy, fov_w: hit.fov_w, fov_h: hit.fov_h, wd: hit.wd, moving: hit.moving, speed: hit.speed }
@@ -54,8 +62,9 @@ export default function Studio() {
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
-  async function run(override) {
-    const payload = { ...form, ...override, image: null, use_sample: false }
+  async function run(override, imageArg, useSample = false) {
+    const image = imageArg === undefined ? (img ? img.dataUrl : null) : imageArg
+    const payload = { ...form, ...override, image, use_sample: useSample }
     setBusy(true)
     setErr('')
     try {
@@ -79,6 +88,36 @@ export default function Studio() {
     setForm(next)
     setPreset(p.k)
     run(next)
+  }
+
+  const IMG_RE = /^image\/(jpeg|jpg|png|bmp|webp|tiff)$|\\.(jpe?g|png|bmp|webp|tiff?)$/i
+
+  async function onFile(file) {
+    if (!file) return
+    if (IMG_RE.test(file.type || '') || IMG_RE.test(file.name)) return loadImage(file)
+    return onDrawing(file)
+  }
+
+  async function loadImage(file) {
+    setDrawing(true)
+    setDrawNote('')
+    try {
+      const dataUrl = await new Promise((res, rej) => {
+        const fr = new FileReader()
+        fr.onload = () => res(fr.result)
+        fr.onerror = () => rej(new Error('读取文件失败'))
+        fr.readAsDataURL(file)
+      })
+      const next = { dataUrl, name: file.name, size: file.size }
+      setImg(next)
+      setPreset('')
+      /* 图片只喂给成像诊断；视野与精度仍取当前参数，不会被图片改写 */
+      await run(null, dataUrl)
+    } catch (e) {
+      setErr('样张读取失败：' + e.message)
+    } finally {
+      setDrawing(false)
+    }
   }
 
   async function onDrawing(file) {
@@ -146,12 +185,26 @@ export default function Studio() {
             <Dropzone
               busy={drawing}
               note={drawNote}
+              img={img}
               onPick={() => fileRef.current?.click()}
-              onFile={onDrawing}
+              onFile={onFile}
+              onClear={() => { setImg(null); run(null, null) }}
             />
+            <button
+              onClick={() => {
+                setPreset('')
+                setImg({ dataUrl: '/sample/part.png', name: '内置合成样张', sample: true })
+                run(null, null, true)
+              }}
+              className="block w-full text-left text-[10.5px] text-ink-3 transition-colors hover:text-accent"
+            >
+              没有样张？用内置合成样张 →
+            </button>
             <input
-              ref={fileRef} type="file" accept=".pdf,.txt" className="hidden"
-              onChange={(e) => onDrawing(e.target.files?.[0])}
+              ref={fileRef} type="file"
+              accept=".pdf,.txt,.jpg,.jpeg,.png,.bmp,.webp,.tif,.tiff,image/*"
+              className="hidden"
+              onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = '' }}
             />
 
             <div>
@@ -242,7 +295,7 @@ export default function Studio() {
 }
 
 /* ── 图纸投放 ─────────────────────────────────────────────────── */
-function Dropzone({ busy, note, onPick, onFile }) {
+function Dropzone({ busy, note, img, onPick, onFile, onClear }) {
   const [over, setOver] = useState(false)
   return (
     <div>
@@ -258,9 +311,27 @@ function Dropzone({ busy, note, onPick, onFile }) {
           over ? 'border-accent bg-accent-soft' : 'border-line-2 bg-surface-2/40 hover:border-accent/60'
         }`}
       >
-        <Upload size={15} strokeWidth={1.7} className={busy ? 'animate-pulse text-accent' : 'text-ink-3'} />
-        <span className="mt-2 text-[12px] text-ink-2">{busy ? '正在解析图纸…' : '拖入产品图纸'}</span>
-        <span className="mt-0.5 text-[10.5px] text-ink-3">PDF / TXT　自动推视野与精度</span>
+        {img ? (
+          <>
+            <img
+              src={img.dataUrl} alt="样张预览"
+              className="max-h-[86px] w-auto rounded-[6px] border border-line object-contain"
+            />
+            <span className="mt-2 max-w-full truncate text-[11.5px] text-ink-2">{img.name}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onClear() }}
+              className="mt-1 text-[10.5px] text-ink-3 underline underline-offset-2 hover:text-fail"
+            >
+              移除样张
+            </button>
+          </>
+        ) : (
+          <>
+            <Upload size={15} strokeWidth={1.7} className={busy ? 'animate-pulse text-accent' : 'text-ink-3'} />
+            <span className="mt-2 text-[12px] text-ink-2">{busy ? '正在处理…' : '拖入图纸或样张'}</span>
+            <span className="mt-0.5 text-[10.5px] text-ink-3">PDF / TXT 推参数　JPG / PNG 判成像</span>
+          </>
+        )}
       </div>
       {note && (
         <p className="mt-2 border-l-2 border-accent/50 pl-2.5 text-[10.5px] leading-relaxed text-ink-3">
@@ -279,6 +350,14 @@ function Results({ data, form }) {
 
   return (
     <>
+      {data.diag && <DiagPanel diag={data.diag} />}
+      {!data.diag && data.diag_error && <DiagPanel error={data.diag_error} />}
+      {!data.diag && !data.diag_error && (
+        <p className="text-[11px] text-ink-3">
+          未提供样张，本次跳过成像诊断——四组计算不依赖样张，结果照常有效。
+        </p>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SpecCard
           icon={Camera} label="相机" value={`${camera.mp} MP`} tone="accent"
@@ -394,6 +473,67 @@ function Results({ data, form }) {
         </span>
       </div>
     </>
+  )
+}
+
+function DiagPanel({ diag, error }) {
+  if (error) {
+    return (
+      <Panel title="成像诊断" actions={<Chip tone="warn">未完成</Chip>}>
+        <p className="text-[11.5px] leading-relaxed text-ink-3">{error}</p>
+        <p className="mt-2 text-[10.5px] text-ink-3/80">样张只影响这一块，四组计算不受影响。</p>
+      </Panel>
+    )
+  }
+
+  const tone = diag.grade === '合格' ? 'ok' : diag.grade === '临界' ? 'warn' : 'fail'
+  const metrics = [
+    ['灰度差', diag.gray_diff, '特征与背景，判据 ≥ 30'],
+    ['过曝像素', `${diag.over}%`, '亮部细节是否丢失'],
+    ['拉普拉斯方差', diag.lap, '清晰度，越高越锐'],
+    ['强边占比', `${diag.edge}%`, '真实边缘密度'],
+  ]
+
+  return (
+    <Panel
+      title="成像诊断"
+      sub={`样张 ${diag.w} × ${diag.h}　判据来自工程阈值，不是拍脑袋`}
+      actions={<Chip tone={tone}>{diag.grade}</Chip>}
+    >
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[10px] border border-line bg-line sm:grid-cols-4">
+        {metrics.map(([k, v, d]) => (
+          <div key={k} className="bg-surface px-3 py-2.5">
+            <div className="text-[10.5px] text-ink-3">{k}</div>
+            <div className="mt-1 text-[16px] font-medium leading-none text-ink-1 tnum">{v}</div>
+            <div className="mt-1.5 text-[10px] leading-snug text-ink-3/80">{d}</div>
+          </div>
+        ))}
+      </div>
+
+      {diag.issues && diag.issues.length > 0 && (
+        <ul className="mt-3 space-y-1">
+          {diag.issues.map((t, i) => (
+            <li key={i} className="flex gap-2 text-[11.5px] leading-relaxed text-[#ffb3a8]">
+              <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-fail" />
+              {t}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {diag.notes && diag.notes.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {diag.notes.map((t, i) => (
+            <li key={i} className="text-[11px] leading-relaxed text-ink-3">{t}</li>
+          ))}
+        </ul>
+      )}
+
+      <p className="mt-3 border-t border-line pt-2.5 text-[10.5px] leading-relaxed text-ink-3/80">
+        样张只能判断这张图够不够用，<b className="font-medium text-ink-3">推不出视野与精度</b>——
+        图片里没有标定尺。那两项由图纸或人工给定。
+      </p>
+    </Panel>
   )
 }
 

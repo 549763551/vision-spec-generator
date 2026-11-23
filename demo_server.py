@@ -133,18 +133,31 @@ def compute(payload: dict) -> dict:
     sample = payload.get("use_sample")
     if sample:
         # 演示用内置样张，省掉现场找文件这一步
-        cand = os.path.join(ROOT, "data", "samples", "image163.png")
+        cand = os.path.join(ROOT, "data", "samples", "sample_part.png")
+        if not os.path.exists(cand):
+            cand = os.path.join(ROOT, "data", "samples", "image163.png")
         if os.path.exists(cand):
             try:
                 diag = diagnose(cand)
             except ImageDiagError as e:
                 diag_error = str(e)[:160]
         else:
-            diag_error = "内置样张不在 data/samples/image163.png"
+            diag_error = "内置样张缺失：data/samples/sample_part.png"
     elif img_b64:
         try:
             raw = base64.b64decode(img_b64.split(",")[-1])
-            tmp = os.path.join(OUT, f"_upload_{datetime.datetime.now():%H%M%S%f}.png")
+            # 按声明的 MIME 定后缀，便于排查；ffmpeg 本身按内容识别，后缀不影响解码
+            head = img_b64[:40].lower()
+            ext = "png"
+            if "image/jpeg" in head or "image/jpg" in head:
+                ext = "jpg"
+            elif "image/webp" in head:
+                ext = "webp"
+            elif "image/bmp" in head:
+                ext = "bmp"
+            elif "image/tiff" in head:
+                ext = "tif"
+            tmp = os.path.join(OUT, f"_upload_{datetime.datetime.now():%H%M%S%f}.{ext}")
             os.makedirs(OUT, exist_ok=True)
             with open(tmp, "wb") as f:
                 f.write(raw)
@@ -297,6 +310,13 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 with open(fp, "rb") as f:
                     self._send(200, f.read(), "text/html; charset=utf-8")
+        elif path == "/sample/part.png":
+            fp = os.path.join(ROOT, "data", "samples", "sample_part.png")
+            if os.path.exists(fp):
+                with open(fp, "rb") as f:
+                    self._send(200, f.read(), "image/png")
+            else:
+                self._send(404, b'{"ok":false,"error":"sample missing"}')
         elif path.startswith("/vendor/"):
             name = os.path.basename(urllib.parse.unquote(path[8:]))
             fp = os.path.join(WEB, "vendor", name)
@@ -388,8 +408,27 @@ class Handler(BaseHTTPRequestHandler):
             self._send(500, msg)
 
 
+def port_busy(port: int) -> bool:
+    """Windows 的 SO_REUSEADDR 允许同一端口被重复绑定，
+    结果两个实例共享请求，改完代码也看不到变化。启动前先探一次。"""
+    import socket as _s
+    sk = _s.socket()
+    sk.settimeout(0.5)
+    try:
+        return sk.connect_ex(("127.0.0.1", port)) == 0
+    finally:
+        sk.close()
+
+
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8848
+    if port_busy(port):
+        print("=" * 58)
+        print(f"  端口 {port} 已被占用，可能已有一个实例在运行。")
+        print("  直接再启动会出现两个进程抢同一端口，页面可能加载到旧代码。")
+        print(f"  先关掉旧窗口，或执行： taskkill /F /PID <占用进程>")
+        print("=" * 58)
+        sys.exit(1)
     os.makedirs(OUT, exist_ok=True)
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     url = f"http://127.0.0.1:{port}/"

@@ -13,6 +13,7 @@ ui/node_modules/
 # ── 第三方素材：版权不属于本仓库，不随仓库分发 ────────
 # 开发期用过的厂商图纸文本、外部课件截图
 data/samples/*.png
+!data/samples/sample_part.png
 data/samples/drawing_*.txt
 
 # ── 系统 ────────────────────────────────────────────
