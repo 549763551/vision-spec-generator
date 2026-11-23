@@ -26,6 +26,7 @@ a{color:inherit;text-decoration:none}
 .topbar{
   display:flex; align-items:center; gap:16px; padding:12px 20px;
   border-bottom:1px solid var(--line); background:rgba(11,13,12,.85); backdrop-filter:blur(12px);
+  position:relative; z-index:5;
 }
 .back{
   display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:8px;
@@ -42,67 +43,86 @@ a{color:inherit;text-decoration:none}
   border:1px solid #2fd3c533; background:var(--accent-soft); color:var(--accent-hi); font-weight:500;
 }
 
-.workspace{flex:1; display:grid; grid-template-columns:300px minmax(0,1fr); min-height:0}
+.workspace{flex:1; display:grid; grid-template-columns:312px minmax(0,1fr); min-height:0}
 .sidebar{
-  border-right:1px solid var(--line); background:var(--surface); overflow-y:auto; padding:20px 18px;
+  border-right:1px solid var(--line); background:var(--surface); overflow-y:auto; padding:20px 18px 32px;
 }
-.side-section+.side-section{border-top:1px solid var(--line); padding-top:18px; margin-top:18px}
+.side-section+.side-section{border-top:1px solid var(--line); padding-top:16px; margin-top:16px}
 .overline{font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--ink3); margin-bottom:4px}
-.sidebar h2{font-size:14px; font-weight:500; color:var(--ink1); margin:0 0 14px}
+.sidebar h2{font-size:14px; font-weight:500; color:var(--ink1); margin:0 0 12px}
 
 .light-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
 .light-card{
-  display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-radius:10px; text-align:left;
+  display:flex; flex-direction:column; gap:2px; padding:9px 11px; border-radius:10px; text-align:left;
   border:1px solid var(--line); background:var(--surface2); color:var(--ink2);
   transition:all 140ms var(--ease-snappy);
 }
-.light-card strong{font-size:13px; font-weight:500; color:var(--ink1)}
-.light-card span{font-size:10.5px; color:var(--ink3); font-family:Consolas,monospace}
+.light-card strong{font-size:12.5px; font-weight:500; color:var(--ink1)}
+.light-card span{font-size:10px; color:var(--ink3); font-family:Consolas,monospace}
 .light-card:hover{border-color:var(--line2); background:#1c2120}
 .light-card.active{border-color:var(--accent); background:var(--accent-soft); box-shadow:0 0 0 1px #2fd3c533}
 .light-card.active strong{color:var(--accent-hi)}
 .light-card.active span{color:var(--accent)}
 
-.control{margin-top:16px}
-.control-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px}
-.control-head label{font-size:12px; color:var(--ink2)}
-.control-head output{font-size:13px; font-weight:500; color:var(--accent-hi); font-variant-numeric:tabular-nums}
-.control-foot{display:flex; justify-content:space-between; font-size:10px; color:var(--ink3); margin-top:5px}
+.control{margin-top:11px}
+.control-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px}
+.control-head label{font-size:11.5px; color:var(--ink2)}
+.control-head output{font-size:12.5px; font-weight:500; color:var(--accent-hi); font-variant-numeric:tabular-nums}
+.control.disabled .control-head label,.control.disabled output{color:var(--ink3)}
+.control.disabled{opacity:.45}
 input[type=range]{
   -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:999px;
-  background:var(--surface2); outline:none;
+  background:var(--surface2); outline:none; border:1px solid var(--line);
 }
 input[type=range]::-webkit-slider-thumb{
-  -webkit-appearance:none; width:15px; height:15px; border-radius:50%; background:var(--accent);
+  -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--accent);
   border:2px solid #0b0d0c; box-shadow:0 0 0 1px var(--accent); cursor:grab;
   transition:transform 120ms var(--ease-snappy);
 }
 input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15)}
-input[type=range]::-moz-range-thumb{width:15px; height:15px; border-radius:50%; background:var(--accent); border:2px solid #0b0d0c; cursor:grab}
-input[type=range]:disabled{opacity:.35}
+input[type=range]::-moz-range-thumb{width:14px; height:14px; border-radius:50%; background:var(--accent); border:2px solid #0b0d0c; cursor:grab}
+input[type=range]:disabled::-webkit-slider-thumb{background:var(--ink3); box-shadow:none; cursor:not-allowed}
 
-.check-row{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink2); padding:6px 0; cursor:pointer}
+.btn-reset{
+  width:100%; margin-top:14px; padding:7px 12px; border-radius:8px; font-size:11.5px;
+  border:1px solid var(--line); background:transparent; color:var(--ink3);
+  transition:all 140ms var(--ease-snappy);
+}
+.btn-reset:hover{border-color:var(--line2); color:var(--ink1); background:var(--surface2)}
+
+.check-row{display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--ink2); padding:5px 0; cursor:pointer}
 .check-row input{accent-color:var(--accent); width:14px; height:14px}
 
-.note{font-size:11px; line-height:1.7; color:var(--ink3); border-left:2px solid var(--accent-soft); padding-left:10px; margin-top:14px}
+.note{font-size:10.5px; line-height:1.75; color:var(--ink3); border-left:2px solid var(--accent-soft); padding-left:10px; margin-top:12px}
+.note b{color:var(--ink2); font-weight:500}
 
 .stage{position:relative; min-width:0; background:radial-gradient(ellipse at 60% -10%, #12202a 0%, transparent 55%), var(--bg)}
-.stage canvas{display:block; width:100%; height:100%}
-.scene-hud{position:absolute; left:18px; top:16px; display:flex; gap:8px; flex-wrap:wrap}
+.stage canvas{display:block; width:100%; height:100%; touch-action:none}
+.scene-hud{position:absolute; left:18px; top:16px; display:flex; gap:7px; flex-wrap:wrap; pointer-events:none}
 .token{
   font-size:11px; padding:4px 10px; border-radius:6px; background:rgba(17,20,19,.82);
   border:1px solid var(--line); color:var(--ink2); font-variant-numeric:tabular-nums;
 }
-.scene-help{position:absolute; right:16px; bottom:14px; font-size:11px; color:var(--ink3)}
-.legend{position:absolute; left:18px; bottom:14px; display:flex; gap:14px; font-size:11px; color:var(--ink3)}
+.token.hi{color:var(--accent-hi); border-color:#2fd3c544}
+.token.warn{color:var(--warn); border-color:#e8a33d44}
+.scene-help{position:absolute; right:16px; bottom:14px; font-size:11px; color:var(--ink3); text-align:right; line-height:1.9}
+.legend{position:absolute; left:18px; bottom:14px; display:flex; gap:14px; font-size:11px; color:var(--ink3); pointer-events:none}
 .legend i{display:inline-block; width:16px; height:2px; vertical-align:middle; margin-right:5px}
+.grab-tip{
+  position:absolute; left:50%; top:16px; transform:translateX(-50%);
+  font-size:11px; padding:5px 12px; border-radius:999px; background:rgba(47,211,197,.12);
+  border:1px solid #2fd3c544; color:var(--accent-hi); opacity:0; transition:opacity 200ms var(--ease-out);
+  pointer-events:none; white-space:nowrap;
+}
+.grab-tip.on{opacity:1}
+body.dragging canvas{cursor:grabbing}
 
 @media(max-width:900px){
   body{overflow:auto}
   .app{height:auto}
   .workspace{grid-template-columns:1fr}
   .sidebar{border-right:none; border-bottom:1px solid var(--line)}
-  .stage{height:60vh}
+  .stage{height:62vh}
 }
 </style>
 </head>
@@ -124,26 +144,39 @@ input[type=range]:disabled{opacity:.35}
         <div class="light-grid" id="lightGrid"></div>
       </section>
       <section class="side-section">
-        <div class="overline">02 / 调角度与距离</div>
-        <h2>安装调试</h2>
+        <div class="overline">02 / 安装调试</div>
+        <h2>位置与朝向</h2>
         <div class="control">
-          <div class="control-head"><label for="angle">发光角（相对水平）</label><output id="angleOut">30°</output></div>
-          <input id="angle" type="range" min="0" max="90" step="5" value="30" />
-          <div class="control-foot"><span>0° 掠射</span><span>90° 直下</span></div>
+          <div class="control-head"><label for="sHeight">安装高度 H</label><output id="oHeight">50 mm</output></div>
+          <input id="sHeight" type="range" min="20" max="260" step="5" value="50" />
+        </div>
+        <div class="control" id="wrapTilt">
+          <div class="control-head"><label for="sTilt">发光角（对水平面）</label><output id="oTilt">50°</output></div>
+          <input id="sTilt" type="range" min="5" max="90" step="5" value="50" />
         </div>
         <div class="control">
-          <div class="control-head"><label for="wd">工作距离 WD</label><output id="wdOut">100 mm</output></div>
-          <input id="wd" type="range" min="20" max="220" step="5" value="100" />
-          <div class="control-foot"><span>20 mm</span><span>220 mm</span></div>
+          <div class="control-head"><label for="sDx">横向偏移 X</label><output id="oDx">0 mm</output></div>
+          <input id="sDx" type="range" min="-150" max="150" step="5" value="0" />
         </div>
+        <div class="control">
+          <div class="control-head"><label for="sDz">前后偏移 Z</label><output id="oDz">0 mm</output></div>
+          <input id="sDz" type="range" min="-150" max="150" step="5" value="0" />
+        </div>
+        <div class="control">
+          <div class="control-head"><label for="sAzim">安装方位角</label><output id="oAzim">0°</output></div>
+          <input id="sAzim" type="range" min="-180" max="180" step="5" value="0" />
+        </div>
+        <button class="btn-reset" id="btnReset">恢复该光源默认安装</button>
       </section>
       <section class="side-section">
         <div class="overline">03 / 视图</div>
         <h2>可视化</h2>
         <label class="check-row"><input id="showRays" type="checkbox" checked />显示入射光线</label>
-        <label class="check-row"><input id="showSpec" type="checkbox" checked />显示镜面反射方向</label>
+        <label class="check-row"><input id="showSpec" type="checkbox" checked />显示镜面反射</label>
+        <label class="check-row"><input id="showWork" type="checkbox" checked />显示视野范围</label>
         <div class="note">
-          角度与距离在 3D 里实时变化，不必回服务器。换光源形态才重新取几何。
+          在 3D 里<b>直接拖动灯具</b>可平移，按住 <b>Shift</b> 拖动改高度，双击灯具复位。
+          光线从灯珠沿发光角射出，落在台面上的位置就是<b>光斑</b>——拖一拖就能看出光有没有打偏。
           这是打光思路的直观推演，不是定量照度仿真。
         </div>
       </section>
@@ -152,14 +185,18 @@ input[type=range]:disabled{opacity:.35}
       <canvas id="scene"></canvas>
       <div class="scene-hud">
         <span class="token" id="tkSeries">RS</span>
-        <span class="token" id="tkAngle">30°</span>
-        <span class="token" id="tkWD">WD 100 mm</span>
+        <span class="token" id="tkHeight">H 50 mm</span>
+        <span class="token hi" id="tkTilt">光 50°</span>
+        <span class="token" id="tkOffset">X 0 · Z 0</span>
+        <span class="token" id="tkCover">光斑 —</span>
       </div>
+      <div class="grab-tip" id="grabTip">移动光源 · 按住 Shift 改高度</div>
       <div class="legend">
         <span><i style="background:#2fd3c5"></i>入射光</span>
         <span><i style="background:#ffd99a"></i>镜面反射</span>
+        <span><i style="background:#a8fff4"></i>光斑</span>
       </div>
-      <div class="scene-help">拖动旋转 · 滚轮缩放 · 双击复位</div>
+      <div class="scene-help">拖灯具平移 · Shift 拖改高度 · Alt 拖改发光角<br />拖空白处旋转 · 滚轮缩放 · 双击复位</div>
     </main>
   </div>
 </div>
@@ -168,281 +205,657 @@ input[type=range]:disabled{opacity:.35}
 <script>
 const T = THREE;
 const $ = id => document.getElementById(id);
-const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const RAD = Math.PI / 180;
 
-// ── 状态：从 URL 读推荐初始值 ──────────────────────────────
+/* ── 尺度：1 场景单位 = 20 mm ─────────────────────────────── */
+const MM = 20;
+const PLANE_Y = 0.12;
+const WORK_HX = 1.55;      // 视野半宽
+const WORK_HZ = 1.15;      // 视野半深
+const PLATE_HX = 1.75;     // 工件台面半宽（覆盖率按台面判定）
+const PLATE_HZ = 1.35;
+let FSCALE = 1;            // 视野缩放：工件与视野框随 FOV 等比变化
+const RAY_MAX = 15;        // 光线最长投射距离（单位），超出视为打飞
+
+/* ── 每种形态的默认安装 ──────────────────────────────────── */
+const DEFAULTS = {
+  RS:   { h: 60,  tilt: 50, tiltable: true,  range: [20, 260] },
+  '2BS':{ h: 40,  tilt: 60, tiltable: true,  range: [20, 220] },
+  HFS:  { h: 110, tilt: 90, tiltable: true,  range: [40, 280] },
+  PHFS: { h: 100, tilt: 90, tiltable: true,  range: [40, 280] },
+  CO:   { h: 180, tilt: 90, tiltable: false, range: [80, 300] },
+  DS:   { h: 0,   tilt: 90, tiltable: false, range: [0, 120] },
+  LPG:  { h: 55,  tilt: 90, tiltable: false, range: [20, 200] },
+  TUG:  { h: 0,   tilt: 90, tiltable: false, range: [0, 160] },
+};
+
 const qs = new URLSearchParams(location.search);
 const state = {
   series: qs.get('series') || 'RS',
-  angle: parseFloat(qs.get('angle')) || 30,   // 发光角（相对水平面）
-  wd: parseFloat(qs.get('wd')) || 100,        // 工作距离 mm
   fov: qs.get('fov') || '15x12',
-  showRays: true, showSpec: true,
+  mount: { h: 50, tilt: 50, dx: 0, dz: 0, azim: 0 },
+  showRays: true, showSpec: true, showWork: true,
 };
 
-// ── Three.js 基础 ─────────────────────────────────────────
+/* ── Three.js 基础 ───────────────────────────────────────── */
 const canvas = $('scene');
-const renderer = new T.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
+const renderer = new T.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const scene = new T.Scene();
 scene.background = new T.Color(0x0b0d0c);
-scene.fog = new T.FogExp2(0x0b0d0c, 0.02);
-const camera = new T.PerspectiveCamera(45, 2, 0.1, 300);
-const orbit = { az:-0.6, el:0.5, zoom:1 };
+scene.fog = new T.FogExp2(0x0b0d0c, 0.011);
+const camera = new T.PerspectiveCamera(42, 2, 0.05, 400);
+const orbit = { az: -0.66, el: 0.44, zoom: 1 };
 
-scene.add(new T.AmbientLight(0x404a46, 1.0));
-const key = new T.DirectionalLight(0xfff6ec, 2.2); key.position.set(4,8,6); scene.add(key);
-const rim = new T.DirectionalLight(0x6ff0e0, 0.8); rim.position.set(-5,3,-4); scene.add(rim);
-const grid = new T.GridHelper(40, 40, 0x1d2a27, 0x121a17); grid.position.y = -0.02; scene.add(grid);
+scene.add(new T.HemisphereLight(0x75918b, 0x0b0d0c, 1.85));
+const keyL = new T.DirectionalLight(0xfff6ec, 2.4); keyL.position.set(6, 10, 8); scene.add(keyL);
+const rimL = new T.DirectionalLight(0x6ff0e0, 1.0); rimL.position.set(-7, 4, -6); scene.add(rimL);
+const grid = new T.GridHelper(48, 48, 0x1d2a27, 0x121a17); grid.position.y = -0.01; scene.add(grid);
 
-// 材质
-function M(c, m=0.6, r=0.5){ return new T.MeshStandardMaterial({color:c, metalness:m, roughness:r}); }
+function M(c, m, r) { return new T.MeshStandardMaterial({ color: c, metalness: m === undefined ? 0.6 : m, roughness: r === undefined ? 0.5 : r }); }
 const MAT = {
-  body: M(0x2b2f31,0.72,0.42), dark: M(0x14171a,0.7,0.5),
-  plate: M(0x383d41,0.85,0.3),
-  work: M(0x3a4046,0.4,0.55),
-  led: new T.MeshStandardMaterial({color:0xeafffb, emissive:0x2fd3c5, emissiveIntensity:1.4, roughness:0.3}),
-  ray: new T.LineBasicMaterial({color:0x2fd3c5, transparent:true, opacity:0.5}),
-  spec: new T.LineBasicMaterial({color:0xffd99a, transparent:true, opacity:0.6}),
+  body:  M(0x333a3d, 0.72, 0.42),
+  cam:   M(0x424b50, 0.68, 0.36),
+  dark:  M(0x14171a, 0.7, 0.5),
+  plate: M(0x383d41, 0.85, 0.3),
+  work:  M(0x3a4046, 0.4, 0.55),
+  feat:  M(0x6b5a3a, 0.7, 0.42),
+  led:   new T.MeshStandardMaterial({ color: 0xeafffb, emissive: 0x2fd3c5, emissiveIntensity: 1.6, roughness: 0.32 }),
+  glass: new T.MeshStandardMaterial({ color: 0x9fd8d0, metalness: 0.9, roughness: 0.08, transparent: true, opacity: 0.42, side: T.DoubleSide }),
+  coaxShell: new T.MeshStandardMaterial({ color: 0x333a3d, metalness: 0.7, roughness: 0.4, transparent: true, opacity: 0.3 }),
+  coaxEdge: new T.LineBasicMaterial({ color: 0x6f8f8a, transparent: true, opacity: 0.5 }),
+  diff:  new T.MeshStandardMaterial({ color: 0xdff7f2, emissive: 0x2fd3c5, emissiveIntensity: 0.26, roughness: 0.74, transparent: true, opacity: 0.42, side: T.DoubleSide }),
+  ray:   new T.LineBasicMaterial({ color: 0x2fd3c5, transparent: true, opacity: 0.62 }),
+  rayDim:new T.LineBasicMaterial({ color: 0x2fd3c5, transparent: true, opacity: 0.22 }),
+  spec:  new T.LineBasicMaterial({ color: 0xffd99a, transparent: true, opacity: 0.4 }),
+  spot:  new T.PointsMaterial({ color: 0xa8fff4, size: 0.075, sizeAttenuation: true, transparent: true, opacity: 0.95, depthWrite: false }),
+  frame: new T.LineBasicMaterial({ color: 0x2fd3c5, transparent: true, opacity: 0.3 }),
 };
 
-// ── 工件（底部平板）────────────────────────────────────────
+/* ── 工件 ───────────────────────────────────────────────── */
 const workpiece = new T.Group();
 {
-  const board = new T.Mesh(new T.BoxGeometry(3.2, 0.08, 2.4), MAT.work);
-  board.position.y = 0.04; workpiece.add(board);
-  // 中央特征区（被照目标）
-  const feat = new T.Mesh(new T.CylinderGeometry(0.5,0.5,0.06,40), M(0x6b5a3a,0.7,0.4));
-  feat.position.y = 0.11; workpiece.add(feat);
-  const ring = new T.Mesh(new T.TorusGeometry(0.62,0.02,10,48), MAT.plate);
-  ring.rotation.x = Math.PI/2; ring.position.y = 0.1; workpiece.add(ring);
+  const board = new T.Mesh(new T.BoxGeometry(3.5, 0.1, 2.7), MAT.work);
+  board.position.y = 0.05; workpiece.add(board);
+  const feat = new T.Mesh(new T.CylinderGeometry(0.52, 0.52, 0.06, 44), MAT.feat);
+  feat.position.y = 0.13; workpiece.add(feat);
+  const ring = new T.Mesh(new T.TorusGeometry(0.64, 0.016, 10, 52), MAT.plate);
+  ring.rotation.x = Math.PI / 2; ring.position.y = 0.12; workpiece.add(ring);
 }
 scene.add(workpiece);
 
-// ── 相机（顶部固定）────────────────────────────────────────
+/* 视野框 */
+const workFrame = new T.Group();
+{
+  const p = [
+    [-WORK_HX, 0.006, -WORK_HZ], [WORK_HX, 0.006, -WORK_HZ],
+    [WORK_HX, 0.006, -WORK_HZ], [WORK_HX, 0.006, WORK_HZ],
+    [WORK_HX, 0.006, WORK_HZ], [-WORK_HX, 0.006, WORK_HZ],
+    [-WORK_HX, 0.006, WORK_HZ], [-WORK_HX, 0.006, -WORK_HZ],
+  ].flat();
+  const g = new T.BufferGeometry();
+  g.setAttribute('position', new T.Float32BufferAttribute(p, 3));
+  workFrame.add(new T.LineSegments(g, MAT.frame));
+}
+scene.add(workFrame);
+
+/* ── 相机 ───────────────────────────────────────────────── */
 const camRig = new T.Group();
 {
-  const body = new T.Mesh(new T.BoxGeometry(0.7,0.5,0.6), MAT.body);
+  const body = new T.Mesh(new T.BoxGeometry(0.82, 0.6, 0.72), MAT.cam);
   camRig.add(body);
-  const lens = new T.Mesh(new T.CylinderGeometry(0.2,0.24,0.5,28), MAT.dark);
-  lens.position.y = -0.48; camRig.add(lens);
-  const glass = new T.Mesh(new T.CircleGeometry(0.18,28),
-    new T.MeshStandardMaterial({color:0x0a2024, metalness:0.4, roughness:0.1}));
-  glass.rotation.x = Math.PI/2; glass.position.y = -0.74; camRig.add(glass);
+  const collar = new T.Mesh(new T.CylinderGeometry(0.3, 0.3, 0.07, 26), MAT.dark);
+  collar.position.y = -0.32; camRig.add(collar);
+  const back = new T.Mesh(new T.BoxGeometry(0.52, 0.36, 0.06), MAT.dark);
+  back.position.z = 0.35; camRig.add(back);
+  const lens = new T.Mesh(new T.CylinderGeometry(0.2, 0.24, 0.54, 30), MAT.dark);
+  lens.position.y = -0.51; camRig.add(lens);
+  const glass = new T.Mesh(new T.CircleGeometry(0.18, 30),
+    new T.MeshStandardMaterial({ color: 0x0a2024, metalness: 0.5, roughness: 0.08 }));
+  glass.rotation.x = Math.PI / 2; glass.position.y = -0.78; camRig.add(glass);
 }
-camRig.position.set(0, 4.6, 0);
+camRig.position.set(0, 5.2, 0);
 scene.add(camRig);
 
-// 相机轴（虚线）
-const axisGeo = new T.BufferGeometry().setFromPoints([new T.Vector3(0,0.12,0), new T.Vector3(0,4.3,0)]);
-const axis = new T.Line(axisGeo, new T.LineDashedMaterial({color:0x8ba0a0, dashSize:0.1, gapSize:0.08, transparent:true, opacity:0.4}));
-axis.computeLineDistances(); scene.add(axis);
+const axis = new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(), new T.Vector3()]),
+  new T.LineDashedMaterial({ color: 0x8ba0a0, dashSize: 0.12, gapSize: 0.1, transparent: true, opacity: 0.3 }));
+axis.computeLineDistances();
+scene.add(axis);
 
-// ── 光源组（可换形态、可调角度/WD）─────────────────────────
-let lightGroup = new T.Group();
+/* ── 光源 ───────────────────────────────────────────────── */
+const lightGroup = new T.Group();
+lightGroup.rotation.order = 'YXZ';
 scene.add(lightGroup);
-let lightGeo = null;   // 后端返回的几何参数
-let emitterPts = [];   // 发光点（用于画光线）
 
-function clearGroup(g){ while(g.children.length){ const c=g.children.pop(); c.traverse(o=>{ if(o.geometry)o.geometry.dispose(); }); } }
+let lightGeo = null;
+let lightDim = null;        // 当前光源的示意尺寸（随视野缩放）
+let panelTilt = null;       // 面光源的可倾斜子组
+let emitters = [];          // {p:局部坐标, inward:水平朝内单位向量|null, fixed:固定方向|null}
+let emitterHost = null;     // 发射点所在子组（面光源用 panelTilt，其余用 lightGroup）
 
-function buildLightMesh(shape, geo){
-  const g = new T.Group();
-  const s = geo.scale || 1;
-  emitterPts = [];
-  if(shape === 'ring'){
-    const r = geo.radius || 0.8;
-    const housing = new T.Mesh(new T.TorusGeometry(r, 0.07, 14, 64), MAT.body);
-    housing.rotation.x = Math.PI/2; g.add(housing);
-    const diff = new T.Mesh(new T.TorusGeometry(r, 0.03, 10, 64), MAT.led);
-    diff.rotation.x = Math.PI/2; g.add(diff);
-    const n = geo.count || 24;
-    const ledGeo = new T.SphereGeometry(0.03, 8, 8);
-    for(let i=0;i<n;i++){
-      const a = i/n*Math.PI*2;
-      const led = new T.Mesh(ledGeo, MAT.led);
-      led.position.set(r*Math.cos(a), 0, r*Math.sin(a)); g.add(led);
-      if(i%3===0) emitterPts.push(new T.Vector3(r*Math.cos(a), 0, r*Math.sin(a)));
-    }
-  } else if(shape === 'bars'){
-    const len = geo.length || 1.4;
-    for(const side of [-1,1]){
-      const bar = new T.Mesh(new T.BoxGeometry(len, 0.09, 0.16), MAT.body);
-      bar.position.set(0, 0, side*0.7); g.add(bar);
-      const face = new T.Mesh(new T.BoxGeometry(len*0.94, 0.03, 0.1), MAT.led);
-      face.position.set(0, -0.06, side*0.7); g.add(face);
-      for(let i=0;i<4;i++) emitterPts.push(new T.Vector3((i/3-0.5)*len*0.8, -0.06, side*0.7));
-    }
-  } else if(shape === 'panel'){
-    const r = geo.radius || 0.9;
-    const frame = new T.Mesh(new T.BoxGeometry(r*2.1, 0.08, r*2.1), MAT.dark);
-    g.add(frame);
-    const face = new T.Mesh(new T.PlaneGeometry(r*1.9, r*1.9), MAT.led);
-    face.rotation.x = Math.PI/2; face.position.y = -0.05; g.add(face);
-    for(let i=0;i<3;i++) for(let j=0;j<3;j++)
-      emitterPts.push(new T.Vector3((i-1)*r*0.6, -0.05, (j-1)*r*0.6));
-  } else if(shape === 'coax'){
-    const r = geo.radius || 0.34;
-    const box = new T.Mesh(new T.BoxGeometry(r*2, r*2, r*2), MAT.body);
-    g.add(box);
-    // 45° 半透半反镜
-    const mirror = new T.Mesh(new T.PlaneGeometry(r*1.7, r*1.7),
-      new T.MeshStandardMaterial({color:0x9fd8d0, metalness:0.9, roughness:0.1, transparent:true, opacity:0.5, side:T.DoubleSide}));
-    mirror.rotation.set(Math.PI/2, 0, Math.PI/4); g.add(mirror);
-    const src = new T.Mesh(new T.PlaneGeometry(r*1.4, r*1.4), MAT.led);
-    src.position.x = -r; src.rotation.y = Math.PI/2; g.add(src);
-    emitterPts.push(new T.Vector3(0, -r*0.4, 0));
-  } else if(shape === 'dome'){
-    const r = geo.radius || 0.7;
-    const dome = new T.Mesh(new T.SphereGeometry(r, 32, 20, 0, Math.PI*2, 0, Math.PI/2),
-      new T.MeshStandardMaterial({color:0xdff7f2, emissive:0x2fd3c5, emissiveIntensity:0.5, roughness:0.6, side:T.DoubleSide}));
-    g.add(dome);
-    const rim2 = new T.Mesh(new T.TorusGeometry(r, 0.04, 10, 48), MAT.body);
-    rim2.rotation.x = Math.PI/2; g.add(rim2);
-    for(let i=0;i<6;i++){ const a=i/6*Math.PI*2; emitterPts.push(new T.Vector3(r*0.7*Math.cos(a), -0.05, r*0.7*Math.sin(a))); }
-  } else if(shape === 'line'){
-    const len = geo.length || 1.6;
-    const bar = new T.Mesh(new T.BoxGeometry(len, 0.1, 0.14), MAT.body);
-    g.add(bar);
-    const face = new T.Mesh(new T.BoxGeometry(len*0.95, 0.03, 0.08), MAT.led);
-    face.position.y = -0.06; g.add(face);
-    for(let i=0;i<5;i++) emitterPts.push(new T.Vector3((i/4-0.5)*len*0.85, -0.06, 0));
-  } else { // tunnel
-    const r = geo.radius || 0.6;
-    const tun = new T.Mesh(new T.CylinderGeometry(r, r, r*1.4, 32, 1, true, 0, Math.PI),
-      new T.MeshStandardMaterial({color:0xdff7f2, emissive:0x2fd3c5, emissiveIntensity:0.5, roughness:0.6, side:T.DoubleSide}));
-    tun.rotation.z = Math.PI/2; g.add(tun);
-    for(let i=0;i<5;i++) emitterPts.push(new T.Vector3((i/4-0.5)*r, -0.05, 0));
+function clearGroup(g) {
+  while (g.children.length) {
+    const c = g.children.pop();
+    c.traverse(o => { if (o.geometry) o.geometry.dispose(); });
   }
+}
+
+function emInward(x, y, z, ix, iz) {
+  emitters.push({ p: new T.Vector3(x, y, z), dir: null, inward: new T.Vector3(ix, 0, iz).normalize() });
+}
+function emFixed(x, y, z, dx, dy, dz) {
+  emitters.push({ p: new T.Vector3(x, y, z), dir: new T.Vector3(dx, dy, dz).normalize(), inward: null });
+}
+function emTo(x, y, z, tx, ty, tz) {
+  emitters.push({ p: new T.Vector3(x, y, z), dir: new T.Vector3(tx - x, ty - y, tz - z).normalize(), inward: null });
+}
+
+/* 灯具几何：全部保持水平安装，靠灯珠内倾角实现斜打 */
+function buildLight(shape, geo) {
+  const g = new T.Group();
+  // 示意尺寸按视野缩放：光源要罩得住视野框，这套比例才成立
+  const fovW = parseFloat((state.fov || '15x12').split('x')[0]) || 15;
+  const FS = clamp(fovW / 15, 0.8, 1.6);
+  const r = ({ ring: 1.62, panel: 1.55, dome: 1.72, tunnel: 1.5, coax: 0.92 }[shape] || 1.5) * FS;
+  const len = ({ bars: 3.0, line: 3.4, tunnel: 3.6 }[shape] || 3.0) * FS;
+  lightDim = { r: r, len: len, fs: FS };
+  emitters = [];
+  panelTilt = null;
+  emitterHost = null;
+
+  if (shape === 'ring') {
+    const shell = new T.Mesh(new T.TorusGeometry(r, 0.075, 16, 72), MAT.body);
+    shell.rotation.x = Math.PI / 2; g.add(shell);
+    const glow = new T.Mesh(new T.TorusGeometry(r, 0.034, 12, 72), MAT.led);
+    glow.rotation.x = Math.PI / 2; glow.position.y = -0.062; g.add(glow);
+    const n = geo.count || 28, ledGeo = new T.SphereGeometry(0.03, 8, 8);
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2;
+      const cx = Math.cos(a), cz = Math.sin(a);
+      const led = new T.Mesh(ledGeo, MAT.led);
+      led.position.set(r * cx, -0.05, r * cz); g.add(led);
+      if (i % 2 === 0) emInward(r * cx, -0.05, r * cz, -cx, -cz);  // 朝环心内倾
+    }
+    for (const s of [-1, 1]) {
+      const rod = new T.Mesh(new T.CylinderGeometry(0.02, 0.02, 0.42, 8), MAT.dark);
+      rod.position.set(s * r * 0.7, 0.3, 0); g.add(rod);
+    }
+    const beam = new T.Mesh(new T.BoxGeometry(r * 1.5, 0.035, 0.035), MAT.dark);
+    beam.position.y = 0.51; g.add(beam);
+
+  } else if (shape === 'bars') {
+    const bx = 1.5 * FS;
+    for (const s of [-1, 1]) {
+      const bar = new T.Mesh(new T.BoxGeometry(0.2, 0.11, len), MAT.body);
+      bar.position.set(s * bx, 0, 0); g.add(bar);
+      const face = new T.Mesh(new T.BoxGeometry(0.13, 0.035, len * 0.94), MAT.led);
+      face.position.set(s * bx, -0.07, 0); g.add(face);
+      const post = new T.Mesh(new T.CylinderGeometry(0.024, 0.024, 0.6, 8), MAT.dark);
+      post.position.set(s * (bx + 0.22), 0.3, 0); g.add(post);
+      for (let k = 0; k < 6; k++) {
+        emInward(s * bx, -0.074, (k / 5 - 0.5) * len * 0.86, -s, 0);  // 朝内侧倾
+      }
+    }
+
+  } else if (shape === 'panel') {
+    // 面光源：矩形发光面，可绕自身 X 轴倾斜，发光方向为面板法线
+    const pw = 3.6 * FS, pd = 2.8 * FS;
+    panelTilt = new T.Group();
+    const frame = new T.Mesh(new T.BoxGeometry(pw * 1.07, 0.11, pd * 1.09), MAT.body);
+    panelTilt.add(frame);
+    const bezel = new T.Mesh(new T.BoxGeometry(pw * 1.02, 0.03, pd * 1.02), MAT.dark);
+    bezel.position.y = -0.07; panelTilt.add(bezel);
+    const face = new T.Mesh(new T.PlaneGeometry(pw, pd), MAT.led);
+    face.rotation.x = Math.PI / 2; face.position.y = -0.078; panelTilt.add(face);
+    for (let i = 0; i < 4; i++) {
+      for (let j = 0; j < 4; j++) {
+        emFixed((i / 3 - 0.5) * pw * 0.84, -0.08, (j / 3 - 0.5) * pd * 0.84, 0, -1, 0);
+      }
+    }
+    g.add(panelTilt);
+    emitterHost = panelTilt;
+    // 安装臂不参与倾斜
+    const arm = new T.Mesh(new T.BoxGeometry(pw * 0.13, 0.05, 0.05), MAT.dark);
+    arm.position.set(pw * 0.57, 0.02, 0); g.add(arm);
+    const post = new T.Mesh(new T.CylinderGeometry(0.028, 0.028, 0.42, 8), MAT.dark);
+    post.position.set(pw * 0.62, 0.23, 0); g.add(post);
+    const pivot = new T.Mesh(new T.SphereGeometry(0.055, 12, 10), MAT.plate);
+    pivot.position.set(pw * 0.53, 0.02, 0); g.add(pivot);
+
+  } else if (shape === 'coax') {
+    const box = new T.Mesh(new T.BoxGeometry(r * 2.1, r * 1.5, r * 2.1), MAT.coaxShell);
+    g.add(box);
+    const edge = new T.LineSegments(
+      new T.EdgesGeometry(new T.BoxGeometry(r * 2.1, r * 1.5, r * 2.1)), MAT.coaxEdge);
+    g.add(edge);
+    const mirror = new T.Mesh(new T.PlaneGeometry(r * 1.72, r * 1.72), MAT.glass);
+    mirror.rotation.set(Math.PI / 2, 0, Math.PI / 4);
+    mirror.position.y = -0.02; g.add(mirror);
+    const src = new T.Mesh(new T.PlaneGeometry(r * 1.3, r * 1.3), MAT.led);
+    src.position.set(-r * 1.02, -0.02, 0); src.rotation.y = Math.PI / 2; g.add(src);
+    g.add(new T.Line(new T.BufferGeometry().setFromPoints([
+      new T.Vector3(-r * 1.02, -0.02, 0), new T.Vector3(0, -0.02, 0),
+    ]), MAT.ray));
+    emFixed(0, -0.04, 0, 0, -1, 0);
+    for (let i = 0; i < 4; i++) {
+      const a = i / 4 * Math.PI * 2;
+      emFixed(Math.cos(a) * r * 0.34, -0.04, Math.sin(a) * r * 0.34, 0, -1, 0);
+    }
+
+  } else if (shape === 'dome') {
+    const shell = new T.Mesh(new T.SphereGeometry(r, 40, 24, 0, Math.PI * 2, 0, Math.PI / 2), MAT.diff);
+    g.add(shell);
+    const skirt = new T.Mesh(new T.TorusGeometry(r, 0.032, 10, 56), MAT.body);
+    skirt.rotation.x = Math.PI / 2; g.add(skirt);
+    for (let k = 0; k < 3; k++) {
+      const phi = (k + 1) / 4 * Math.PI / 2;
+      for (let i = 0; i < 6; i++) {
+        const a = i / 6 * Math.PI * 2;
+        const px = r * Math.cos(phi) * Math.cos(a);
+        const py = r * Math.sin(phi);
+        const pz = r * Math.cos(phi) * Math.sin(a);
+        emTo(px, py, pz, 0, 0.05, 0);
+      }
+    }
+
+  } else if (shape === 'line') {
+    const bar = new T.Mesh(new T.BoxGeometry(len, 0.11, 0.16), MAT.body);
+    g.add(bar);
+    const face = new T.Mesh(new T.BoxGeometry(len * 0.95, 0.035, 0.1), MAT.led);
+    face.position.y = -0.07; g.add(face);
+    for (const s of [-1, 1]) {
+      const post = new T.Mesh(new T.CylinderGeometry(0.022, 0.022, 0.5, 8), MAT.dark);
+      post.position.set(s * len * 0.46, 0.25, 0); g.add(post);
+    }
+    for (let k = 0; k < 7; k++) {
+      emFixed((k / 6 - 0.5) * len * 0.88, -0.074, 0, 0, -1, 0);
+    }
+
+  } else {
+    // 隧道：半圆筒横跨工件，开口朝下
+    const tun = new T.Mesh(new T.CylinderGeometry(r, r, len, 40, 1, true, 0, Math.PI), MAT.diff);
+    tun.rotation.z = Math.PI / 2; g.add(tun);
+    for (const s of [-1, 1]) {
+      const lip = new T.Mesh(new T.TorusGeometry(r, 0.022, 8, 30, Math.PI), MAT.body);
+      lip.rotation.y = Math.PI / 2;
+      lip.position.x = s * len / 2; g.add(lip);
+    }
+    for (let i = 0; i < 3; i++) {
+      const phi = (i + 1) / 4 * Math.PI;
+      const py = r * Math.sin(phi), pz = r * Math.cos(phi);
+      for (let k = 0; k < 3; k++) {
+        { const px = (k / 2 - 0.5) * len * 0.66; emFixed(px, py, pz, -px * 0.3, -1, -pz * 0.3); }
+      }
+    }
+  }
+
+  // 拾取代理：空心灯具（环光、穹顶）中心是空的，加一个不可见球体，
+  // 让用户点灯具附近就能拖动，而不是必须精准点到壳体
+  const handle = new T.Mesh(
+    new T.SphereGeometry(Math.max(r * 0.95, len * 0.5), 14, 10),
+    new T.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+  );
+  handle.name = 'pickHandle';
+  g.add(handle);
+
+  if (!emitterHost) emitterHost = g;
   return g;
 }
 
-// ── 光线（入射 + 镜面反射）─────────────────────────────────
-const rayGroup = new T.Group(); scene.add(rayGroup);
-function rebuildRays(){
+/* ── 光线 ───────────────────────────────────────────────── */
+const rayGroup = new T.Group();
+scene.add(rayGroup);
+
+const _v = new T.Vector3(), _d = new T.Vector3(), _p = new T.Vector3();
+
+function rebuildRays() {
   clearGroup(rayGroup);
-  if(!emitterPts.length) return;
-  const inc = [], spec = [];
-  // 光源当前的世界变换（角度倾斜 + WD 高度）
+  if (!emitters.length) return;
+
+  const a = state.mount.tilt * RAD;
+  const ca = Math.cos(a), sa = Math.sin(a);
+  const panelTiltRad = (90 - state.mount.tilt) * RAD;
+
+  if (panelTilt) panelTilt.rotation.x = panelTiltRad;
   lightGroup.updateMatrixWorld(true);
-  for(const p of emitterPts){
-    const w = p.clone().applyMatrix4(lightGroup.matrixWorld);
-    const target = new T.Vector3(0, 0.14, 0);
-    inc.push(w.x, w.y, w.z, target.x, target.y, target.z);
-    // 镜面反射：以工件法线(0,1,0)反射入射方向
-    const d = target.clone().sub(w).normalize();
-    const n = new T.Vector3(0,1,0);
-    const refl = d.clone().sub(n.multiplyScalar(2*d.dot(n))).normalize();
-    const end = target.clone().add(refl.multiplyScalar(1.6));
-    spec.push(target.x, target.y, target.z, end.x, end.y, end.z);
+
+  const hostM = (emitterHost || lightGroup).matrixWorld;
+  const lightM = lightGroup.matrixWorld;
+
+  const incOn = [], incOff = [], spec = [], spots = [];
+  const nUp = new T.Vector3(0, 1, 0);
+  let total = 0, onWork = 0;
+
+  for (const e of emitters) {
+    // 发射点：局部 → 宿主 → 世界
+    _p.copy(e.p).applyMatrix4(hostM);
+    // 发射方向：固定方向（含面板法线）或 LED 内倾
+    if (e.dir) {
+      _d.copy(e.dir).transformDirection(hostM);
+    } else {
+      const w = e.inward.clone().transformDirection(hostM);
+      _d.set(w.x * ca, -sa, w.z * ca).normalize();
+    }
+
+    if (_d.y >= -0.03) continue;                    // 不朝下
+    total++;
+
+    const t = (PLANE_Y - _p.y) / _d.y;
+    if (t <= 0 || t > RAY_MAX) {                    // 打飞，截断画
+      const end = _p.clone().add(_d.clone().multiplyScalar(RAY_MAX * 0.5));
+      incOff.push(_p.x, _p.y, _p.z, end.x, end.y, end.z);
+      continue;
+    }
+
+    const hit = _p.clone().add(_d.clone().multiplyScalar(t));
+    const inWork = Math.abs(hit.x) <= PLATE_HX * FSCALE && Math.abs(hit.z) <= PLATE_HZ * FSCALE;
+
+    if (inWork) {
+      onWork++;
+      incOn.push(_p.x, _p.y, _p.z, hit.x, hit.y, hit.z);
+      spots.push(hit.x, hit.y + 0.005, hit.z);
+      const nl = nUp.clone().multiplyScalar(2 * _d.dot(nUp));
+      const refl = _d.clone().sub(nl).normalize();
+      const end = hit.clone().add(refl.multiplyScalar(0.75));
+      spec.push(hit.x, hit.y, hit.z, end.x, end.y, end.z);
+    } else {
+      incOff.push(_p.x, _p.y, _p.z, hit.x, hit.y, hit.z);
+    }
   }
-  if(state.showRays){
-    const g1 = new T.BufferGeometry(); g1.setAttribute('position', new T.Float32BufferAttribute(inc,3));
-    rayGroup.add(new T.LineSegments(g1, MAT.ray));
+
+  function seg(arr, mat) {
+    if (!arr.length) return;
+    const g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(arr, 3));
+    rayGroup.add(new T.LineSegments(g, mat));
   }
-  if(state.showSpec){
-    const g2 = new T.BufferGeometry(); g2.setAttribute('position', new T.Float32BufferAttribute(spec,3));
-    rayGroup.add(new T.LineSegments(g2, MAT.spec));
+  if (state.showRays) { seg(incOff, MAT.rayDim); seg(incOn, MAT.ray); }
+  if (state.showSpec) seg(spec, MAT.spec);
+  if (spots.length) {
+    const g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(spots, 3));
+    rayGroup.add(new T.Points(g, MAT.spot));
+  }
+
+  // 光斑覆盖率
+  const tk = $('tkCover');
+  if (!total) { tk.textContent = '光斑 —'; tk.className = 'token'; }
+  else {
+    const pct = Math.round(onWork / total * 100);
+    tk.textContent = pct === 0 ? '光斑 0% · 打偏' : '光斑 ' + pct + '%';
+    tk.className = 'token ' + (pct >= 60 ? 'hi' : pct > 0 ? '' : 'warn');
   }
 }
 
-// ── 应用状态：位置 / 朝向 / 光线 ────────────────────────────
-function applyState(){
-  // WD：毫米 → 场景单位（约 /40）
-  lightGroup.position.set(0, 0.14 + state.wd/40, 0);
-  // 发光角：90° 直打（光源水平），角度越小光源越倾斜（斜打）
-  const tilt = (90 - state.angle) * Math.PI/180;
-  lightGroup.rotation.set(tilt, 0, 0);
-  // 更新 HUD
+/* ── 应用安装参数 ───────────────────────────────────────── */
+function applyMount() {
+  const m = state.mount;
+  const shape = lightGeo ? lightGeo.shape : 'ring';
+  const r = (lightDim && lightDim.r) || 1.5;
+
+  let y;
+  if (shape === 'dome') {
+    y = PLANE_Y - 0.05 + m.h / MM;              // 半球开口贴台面，高度即抬升
+  } else if (shape === 'tunnel') {
+    y = Math.max(r, PLANE_Y + m.h / MM);        // 轴线不能低于半径，否则筒壁插地
+  } else {
+    y = Math.max(0.35, m.h / MM);
+  }
+
+  let camY;
+  if (shape === 'coax') {
+    camY = Math.max(m.h / MM, 4.0);
+    const half = (lightDim ? lightDim.r * 0.75 : 0.7);
+    lightGroup.position.set(m.dx / MM, camY - 0.80 - half, m.dz / MM);
+  } else {
+    lightGroup.position.set(m.dx / MM, y, m.dz / MM);
+    camY = Math.max(lightGroup.position.y + 2.7, 4.6);
+  }
+
+  lightGroup.rotation.set(0, m.azim * RAD, 0);
+
+  camRig.position.set(0, camY, 0);
+  axis.geometry.dispose();
+  axis.geometry = new T.BufferGeometry().setFromPoints([
+    new T.Vector3(0, PLANE_Y, 0), new T.Vector3(0, camY - 0.78, 0),
+  ]);
+  axis.computeLineDistances();
+
   $('tkSeries').textContent = state.series;
-  $('tkAngle').textContent = state.angle + '°';
-  $('tkWD').textContent = 'WD ' + state.wd + ' mm';
-  $('angleOut').textContent = state.angle + '°';
-  $('wdOut').textContent = state.wd + ' mm';
-  $('angle').value = state.angle;
-  $('wd').value = state.wd;
+  $('tkHeight').textContent = 'H ' + Math.round(m.h) + ' mm';
+  const tiltable = (DEFAULTS[state.series] || DEFAULTS.RS).tiltable;
+  $('tkTilt').textContent = tiltable ? ('光 ' + Math.round(m.tilt) + '°') : '光 —';
+  $('tkOffset').textContent = 'X ' + Math.round(m.dx) + ' · Z ' + Math.round(m.dz);
+  $('oHeight').textContent = Math.round(m.h) + ' mm';
+  $('oTilt').textContent = Math.round(m.tilt) + '°';
+  $('oDx').textContent = Math.round(m.dx) + ' mm';
+  $('oDz').textContent = Math.round(m.dz) + ' mm';
+  $('oAzim').textContent = Math.round(m.azim) + '°';
+
+  $('sHeight').value = m.h;
+  $('sTilt').value = m.tilt;
+  $('sDx').value = m.dx;
+  $('sDz').value = m.dz;
+  $('sAzim').value = m.azim;
+
   rebuildRays();
 }
 
-// ── 换光源：回后端取几何 ────────────────────────────────────
-async function loadLight(series){
-  state.series = series;
-  const r = await fetch(`/api/lab?series=${series}&fov=${state.fov}`);
-  const d = await r.json();
-  if(!d.ok) return;
-  lightGeo = d.light;
-  clearGroup(lightGroup);
-  lightGroup.add(buildLightMesh(lightGeo.shape, lightGeo));
-  $('curLight').textContent = `${d.series} · ${d.form}`;
-  // 用该形态的默认角度
-  if(d.default_angle || d.default_angle===0){
-    state.angle = d.default_angle;
-  }
-  document.querySelectorAll('.light-card').forEach(c=>c.classList.toggle('active', c.dataset.series===series));
-  applyState();
+function defaultMount(series) {
+  const d = DEFAULTS[series] || DEFAULTS.RS;
+  return { h: d.h, tilt: d.tilt, dx: 0, dz: 0, azim: 0 };
 }
 
-// ── 光源选择按钮 ──────────────────────────────────────────
-async function initGrid(){
-  const r = await fetch(`/api/lab?series=${state.series}&fov=${state.fov}`);
-  const d = await r.json();
+function syncControls(series) {
+  const d = DEFAULTS[series] || DEFAULTS.RS;
+  const sh = $('sHeight');
+  sh.min = d.range[0]; sh.max = d.range[1];
+  const st = $('sTilt');
+  st.disabled = !d.tiltable;
+  $('wrapTilt').classList.toggle('disabled', !d.tiltable);
+}
+
+/* ── 换光源 ─────────────────────────────────────────────── */
+async function loadLight(series, keepMount) {
+  state.series = series;
+  let d;
+  try {
+    const res = await fetch('/api/lab?series=' + encodeURIComponent(series) + '&fov=' + encodeURIComponent(state.fov));
+    d = await res.json();
+  } catch (err) { return; }
+  if (!d.ok) return;
+
+  lightGeo = d.light;
+  clearGroup(lightGroup);
+  lightGroup.add(buildLight(lightGeo.shape, lightGeo));
+  $('curLight').textContent = d.series + ' · ' + d.form;
+
+  if (!keepMount) state.mount = defaultMount(series);
+  syncControls(series);
+
+  document.querySelectorAll('.light-card').forEach(c => c.classList.toggle('active', c.dataset.series === series));
+  applyMount();
+}
+
+/* ── 初始化按钮 ─────────────────────────────────────────── */
+function applyFov() {
+  const fovW = parseFloat((state.fov || '15x12').split('x')[0]) || 15;
+  FSCALE = clamp(fovW / 15, 0.8, 1.6);
+  workpiece.scale.set(FSCALE, 1, FSCALE);
+  workFrame.scale.set(FSCALE, 1, FSCALE);
+}
+
+async function initGrid() {
+  applyFov();
+  let d;
+  try {
+    const res = await fetch('/api/lab?series=' + encodeURIComponent(state.series) + '&fov=' + encodeURIComponent(state.fov));
+    d = await res.json();
+  } catch (err) { return; }
+
   const grid = $('lightGrid');
   grid.innerHTML = '';
-  d.lights.forEach(l=>{
+  d.lights.forEach(l => {
     const b = document.createElement('button');
-    b.className = 'light-card' + (l.series===state.series?' active':'');
+    b.className = 'light-card' + (l.series === state.series ? ' active' : '');
     b.dataset.series = l.series;
-    b.innerHTML = `<strong>${l.form}</strong><span>${l.series}</span>`;
-    b.onclick = ()=>loadLight(l.series);
+    b.innerHTML = '<strong>' + l.form + '</strong><span>' + l.series + '</span>';
+    b.onclick = () => loadLight(l.series, false);
     grid.appendChild(b);
   });
-  // 初始光源
+
   lightGeo = d.light;
   clearGroup(lightGroup);
-  lightGroup.add(buildLightMesh(lightGeo.shape, lightGeo));
-  $('curLight').textContent = `${d.series} · ${d.form}`;
-  if(qs.get('angle')===null && (d.default_angle||d.default_angle===0)) state.angle = d.default_angle;
-  applyState();
+  lightGroup.add(buildLight(lightGeo.shape, lightGeo));
+  $('curLight').textContent = d.series + ' · ' + d.form;
+
+  state.mount = defaultMount(state.series);
+  if (qs.get('angle') !== null) state.mount.tilt = clamp(parseFloat(qs.get('angle')) || 0, 5, 90);
+  if (qs.get('wd') !== null) state.mount.h = clamp(parseFloat(qs.get('wd')) || 0, 0, 320);
+  if (qs.get('dx') !== null) state.mount.dx = clamp(parseFloat(qs.get('dx')) || 0, -150, 150);
+  if (qs.get('dz') !== null) state.mount.dz = clamp(parseFloat(qs.get('dz')) || 0, -150, 150);
+  if (qs.get('azim') !== null) state.mount.azim = clamp(parseFloat(qs.get('azim')) || 0, -180, 180);
+
+  syncControls(state.series);
+  applyMount();
 }
 
-// ── 控件绑定 ──────────────────────────────────────────────
-$('angle').addEventListener('input', e=>{ state.angle = +e.target.value; applyState(); });
-$('wd').addEventListener('input', e=>{ state.wd = +e.target.value; applyState(); });
-$('showRays').addEventListener('change', e=>{ state.showRays = e.target.checked; rebuildRays(); });
-$('showSpec').addEventListener('change', e=>{ state.showSpec = e.target.checked; rebuildRays(); });
-$('backBtn').addEventListener('click', e=>{
-  if(document.referrer && new URL(document.referrer).origin===location.origin){ e.preventDefault(); history.back(); }
+/* ── 控件 ───────────────────────────────────────────────── */
+$('sHeight').addEventListener('input', e => { state.mount.h = +e.target.value; applyMount(); });
+$('sTilt').addEventListener('input', e => { state.mount.tilt = +e.target.value; applyMount(); });
+$('sDx').addEventListener('input', e => { state.mount.dx = +e.target.value; applyMount(); });
+$('sDz').addEventListener('input', e => { state.mount.dz = +e.target.value; applyMount(); });
+$('sAzim').addEventListener('input', e => { state.mount.azim = +e.target.value; applyMount(); });
+$('btnReset').addEventListener('click', () => { state.mount = defaultMount(state.series); applyMount(); });
+$('showRays').addEventListener('change', e => { state.showRays = e.target.checked; rebuildRays(); });
+$('showSpec').addEventListener('change', e => { state.showSpec = e.target.checked; rebuildRays(); });
+$('showWork').addEventListener('change', e => { state.showWork = e.target.checked; workFrame.visible = state.showWork; });
+$('backBtn').addEventListener('click', e => {
+  if (document.referrer && new URL(document.referrer).origin === location.origin) { e.preventDefault(); history.back(); }
 });
 
-// ── 轨道控制（拖拽旋转 / 滚轮缩放）─────────────────────────
-let drag = null;
-canvas.addEventListener('pointerdown', e=>{ drag={x:e.clientX,y:e.clientY,az:orbit.az,el:orbit.el}; canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener('pointermove', e=>{ if(!drag)return; orbit.az=drag.az+(e.clientX-drag.x)*0.008; orbit.el=clamp(drag.el-(e.clientY-drag.y)*0.008,0.05,1.5); });
-canvas.addEventListener('pointerup', ()=>drag=null);
-canvas.addEventListener('pointercancel', ()=>drag=null);
-canvas.addEventListener('dblclick', ()=>{ orbit.az=-0.6; orbit.el=0.5; orbit.zoom=1; });
-canvas.addEventListener('wheel', e=>{ e.preventDefault(); orbit.zoom=clamp(orbit.zoom*Math.exp(e.deltaY*0.001),0.5,2.2); },{passive:false});
+/* ── 3D 交互 ────────────────────────────────────────────── */
+const raycaster = new T.Raycaster();
+const ndc = new T.Vector2();
+let dragView = null;
+let dragLight = null;
 
-// ── 渲染循环 ──────────────────────────────────────────────
-function resize(){
-  const w = canvas.clientWidth, h = canvas.clientHeight;
-  if(canvas.width!==w||canvas.height!==h){ renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+function setNdc(ev) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
 }
-function frame(){
+
+function pickLight(ev) {
+  setNdc(ev);
+  const meshes = [];
+  lightGroup.traverse(o => { if (o.isMesh) meshes.push(o); });
+  return raycaster.intersectObjects(meshes, false)[0] || null;
+}
+
+function hitPlaneY(ev, planeY) {
+  setNdc(ev);
+  const plane = new T.Plane(new T.Vector3(0, 1, 0), -planeY);
+  const p = new T.Vector3();
+  return raycaster.ray.intersectPlane(plane, p) ? p : null;
+}
+
+canvas.addEventListener('pointerdown', ev => {
+  const hit = pickLight(ev);
+  if (hit) {
+    canvas.setPointerCapture(ev.pointerId);
+    const tiltable = (DEFAULTS[state.series] || DEFAULTS.RS).tiltable;
+    dragLight = {
+      mode: ev.altKey && tiltable ? 'tilt' : ev.shiftKey ? 'height' : 'xz',
+      startClientY: ev.clientY,
+      h0: state.mount.h,
+      tilt0: state.mount.tilt,
+      p0: hitPlaneY(ev, lightGroup.position.y),
+      dx0: state.mount.dx,
+      dz0: state.mount.dz,
+    };
+    $('grabTip').classList.add('on');
+    $('grabTip').textContent =
+      dragLight.mode === 'tilt' ? '上下拖动 · 改发光角' :
+      dragLight.mode === 'height' ? '上下拖动 · 改安装高度' :
+      '水平拖动 · 改 X / Z 偏移';
+  } else {
+    dragView = { x: ev.clientX, y: ev.clientY, az: orbit.az, el: orbit.el };
+    canvas.setPointerCapture(ev.pointerId);
+  }
+});
+
+canvas.addEventListener('pointermove', ev => {
+  if (dragLight) {
+    if (dragLight.mode === 'tilt') {
+      const dt = -(ev.clientY - dragLight.startClientY) * 0.5;
+      state.mount.tilt = clamp(Math.round(dragLight.tilt0 + dt), 5, 90);
+    } else if (dragLight.mode === 'height') {
+      const dh = -(ev.clientY - dragLight.startClientY) * 0.7;
+      state.mount.h = clamp(dragLight.h0 + dh, +$('sHeight').min, +$('sHeight').max);
+    } else {
+      const p = hitPlaneY(ev, lightGroup.position.y);
+      if (p && dragLight.p0) {
+        state.mount.dx = clamp(dragLight.dx0 + (p.x - dragLight.p0.x) * MM, -150, 150);
+        state.mount.dz = clamp(dragLight.dz0 + (p.z - dragLight.p0.z) * MM, -150, 150);
+      }
+    }
+    applyMount();
+    return;
+  }
+  if (dragView) {
+    orbit.az = dragView.az + (ev.clientX - dragView.x) * 0.008;
+    orbit.el = clamp(dragView.el - (ev.clientY - dragView.y) * 0.008, 0.04, 1.5);
+  }
+});
+
+function endDrag() {
+  dragLight = null; dragView = null;
+  if ($('grabTip')) $('grabTip').classList.remove('on');
+}
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+canvas.addEventListener('dblclick', ev => {
+  if (pickLight(ev)) { state.mount = defaultMount(state.series); applyMount(); return; }
+  orbit.az = -0.66; orbit.el = 0.44; orbit.zoom = 1;
+});
+
+canvas.addEventListener('wheel', ev => {
+  ev.preventDefault();
+  orbit.zoom = clamp(orbit.zoom * Math.exp(ev.deltaY * 0.001), 0.42, 2.6);
+}, { passive: false });
+
+/* ── 渲染 ───────────────────────────────────────────────── */
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== w || canvas.height !== h) {
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+}
+
+function frame() {
   resize();
-  const dist = 11.5*orbit.zoom;
-  const t = new T.Vector3(0, 1.7, 0);
+  const topY = camRig.position.y + 0.5;
+  const base = Math.max(9.5, topY * 2.05);
+  const dist = base * orbit.zoom;
+  const focusY = clamp(topY * 0.42, 1.2, 5.2);
+  const t = new T.Vector3(lightGroup.position.x * 0.2, focusY, lightGroup.position.z * 0.2);
   camera.position.set(
-    t.x + dist*Math.cos(orbit.el)*Math.sin(orbit.az),
-    t.y + dist*Math.sin(orbit.el),
-    t.z + dist*Math.cos(orbit.el)*Math.cos(orbit.az)
+    t.x + dist * Math.cos(orbit.el) * Math.sin(orbit.az),
+    t.y + dist * Math.sin(orbit.el),
+    t.z + dist * Math.cos(orbit.el) * Math.cos(orbit.az)
   );
   camera.lookAt(t);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 
-fetch('/api/version').then(r=>r.json()).then(d=>$('ver').textContent=d.version||'').catch(()=>{});
+fetch('/api/version').then(r => r.json()).then(d => { $('ver').textContent = d.version || ''; }).catch(() => {});
+workFrame.visible = state.showWork;
 initGrid();
 frame();
 </script>

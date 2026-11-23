@@ -386,11 +386,11 @@ function Results({ data, form }) {
   const { camera, lens, light, controller, validate, procedure, report_url } = data
   const need = camera.res_for_defect?.[0] || 0
   const cover = need ? Math.min(1, need / camera.w) : 0
-  /* 带当前推荐光源进光学实验室，可换光源、调角度/距离 */
+  /* 带当前推荐光源进光学实验室。WD 是相机到工件的距离，不是光源安装高度，
+     传过去会让灯具默认架太高、光直接打飞，所以只带光源系列与视野。 */
   const labHref = '/lab?' + new URLSearchParams({
     series: light?.series || 'RS',
     fov: `${form.fov_w}x${form.fov_h}`,
-    wd: String(form.wd),
   }).toString()
 
   return (
